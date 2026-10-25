@@ -41,13 +41,14 @@ final class NotebookTools {
 
     /// The sizes PencilKit allows for the kind of eraser chosen.
     var eraserRange: ClosedRange<Double> {
-        Double(eraserType.minWidth)...Double(eraserType.maxWidth)
+        Double(PKEraserTool.minimumWidth(forEraserType: eraserType))
+            ...Double(PKEraserTool.maximumWidth(forEraserType: eraserType))
     }
 
     /// The eraser's size: the one chosen for this kind, else PencilKit's default, within its limits.
     var eraserWidth: Double {
         let range = eraserRange
-        return min(max(state.eraserWidth ?? Double(eraserType.defaultWidth), range.lowerBound), range.upperBound)
+        return min(max(state.eraserWidth ?? Double(PKEraserTool.defaultWidth(forEraserType: eraserType)), range.lowerBound), range.upperBound)
     }
 
     /// Small, medium and large, spread over the allowed sizes.
