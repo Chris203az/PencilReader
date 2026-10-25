@@ -122,23 +122,23 @@ final class NotebookSheetView: UIView {
 
 /// A scrolling PencilKit canvas: the Pencil writes, a finger scrolls. The page
 /// grows downward as the writing goes further down.
-final class NotebookCanvasView: PKCanvasView, PKCanvasViewDelegate {
+final class NotebookCanvasView: PKCanvasView {
     weak var notebook: NotebookModel?
     /// Called on every scroll, so the paper behind can move with the writing.
     var onScroll: ((CGPoint) -> Void)?
 
     private let toolPicker = PKToolPicker()
-
-    override var contentOffset: CGPoint {
-        didSet { onScroll?(contentOffset) }
-    }
+    /// Never the canvas itself: a canvas that is its own delegate also answers
+    /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
+    private let events = CanvasEvents()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         drawingPolicy = .pencilOnly
         alwaysBounceVertical = true
         backgroundColor = .clear
-        delegate = self
+        events.canvas = self
+        delegate = events
     }
 
     required init?(coder: NSCoder) {
@@ -161,11 +161,23 @@ final class NotebookCanvasView: PKCanvasView, PKCanvasViewDelegate {
         if contentSize != size { contentSize = size }
     }
 
-    func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-        // Grows after the current callback: resizing while PencilKit is still handling
-        // the stroke re-entered it and crashed the app.
+    fileprivate func drawingDidChange() {
+        // Grows after the current callback, not while PencilKit is still handling the stroke.
         DispatchQueue.main.async { [weak self] in self?.fitContent() }
         notebook?.drawingDidChange()
+    }
+}
+
+/// Receives the canvas' drawing and scroll events.
+private final class CanvasEvents: NSObject, PKCanvasViewDelegate {
+    weak var canvas: NotebookCanvasView?
+
+    func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+        canvas?.drawingDidChange()
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        canvas?.onScroll?(scrollView.contentOffset)
     }
 }
 
