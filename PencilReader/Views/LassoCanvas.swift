@@ -1,3 +1,4 @@
+import ReaderCore
 import SwiftUI
 import UIKit
 
@@ -5,7 +6,7 @@ import UIKit
 /// Finger touches never draw (unless enabled for the simulator): a tap
 /// closes the panel, a horizontal swipe turns the page, a swipe down exits,
 /// a pinch or a double tap zooms. While zoomed, dragging moves the page
-/// instead of swiping.
+/// instead of swiping. In study mode the Pencil marks the page instead; fingers work the same.
 struct LassoCanvas: UIViewRepresentable {
     var allowsFinger: Bool
     var isZoomed: Bool
@@ -18,6 +19,9 @@ struct LassoCanvas: UIViewRepresentable {
     /// Incremental translation.
     var onPan: (CGSize) -> Void
     var onDoubleTap: (CGPoint) -> Void
+    /// The study marks of the book, with the page shown and where its image is. They stay
+    /// on the page when study mode is off; only while it is on does the Pencil mark instead of lassoing.
+    var study: (model: StudyModel, isActive: Bool, page: Int, frame: CGRect, text: PageText?)?
 
     func makeUIView(context: Context) -> LassoCanvasView { LassoCanvasView() }
 
@@ -31,6 +35,16 @@ struct LassoCanvas: UIViewRepresentable {
         view.onZoomEnded = onZoomEnded
         view.onPan = onPan
         view.onDoubleTap = onDoubleTap
+        if let study {
+            view.showMarks(of: study.model, editable: study.isActive)
+                .update(page: study.page, frame: study.frame, text: study.text)
+        } else {
+            view.stopStudying()
+        }
+    }
+
+    static func dismantleUIView(_ view: LassoCanvasView, coordinator: Void) {
+        view.stopStudying()
     }
 }
 
@@ -54,6 +68,9 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     private let strokeLayer = CAShapeLayer()
     private var swipes: [UISwipeGestureRecognizer] = []
     private let pan = UIPanGestureRecognizer()
+    /// While studying, the Pencil draws on this canvas instead of lassoing. It is a subview,
+    /// so the finger gestures of this view still turn, zoom and move the page.
+    private var studyCanvas: StudyCanvasView?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -104,16 +121,55 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     }
 
     /// Pinch and drag together, so the page follows the fingers while zooming.
+    /// In study mode the canvas' own gestures never hold them back.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-        (gestureRecognizer is UIPinchGestureRecognizer && other == pan)
+        if let studyCanvas, let view = other.view, view.isDescendant(of: studyCanvas) { return true }
+        return (gestureRecognizer is UIPinchGestureRecognizer && other == pan)
             || (gestureRecognizer == pan && other is UIPinchGestureRecognizer)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    /// The canvas is created once and never removed while the reader is open: this runs inside
+    /// a SwiftUI update, and taking a PencilKit canvas out of the window there sent SwiftUI into
+    /// an endless update (the app froze). With study mode off it only shows the marks and lets the
+    /// Pencil through to the lasso; the marks are saved just after the update, for the same reason.
+    func showMarks(of study: StudyModel, editable: Bool) -> StudyCanvasView {
+        let canvas: StudyCanvasView
+        if let studyCanvas, studyCanvas.study === study {
+            canvas = studyCanvas
+        } else {
+            studyCanvas?.isHidden = true
+            canvas = StudyCanvasView(study: study)
+            canvas.frame = bounds
+            addSubview(canvas)
+            studyCanvas = canvas
+        }
+        if canvas.isUserInteractionEnabled != editable {
+            canvas.isUserInteractionEnabled = editable
+            if !editable { DispatchQueue.main.async { study.flush() } }
+        }
+        if editable { study.canvas = canvas }
+        return canvas
+    }
+
+    func stopStudying() {
+        guard let studyCanvas, !studyCanvas.isHidden else { return }
+        studyCanvas.isHidden = true
+        let study = studyCanvas.study
+        DispatchQueue.main.async { study.flush() }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let studyCanvas, studyCanvas.frame != bounds else { return }
+        studyCanvas.frame = bounds
+        studyCanvas.reposition()
+    }
+
     private func draws(_ touch: UITouch) -> Bool {
-        touch.type == .pencil || (allowsFinger && touch.type == .direct)
+        studyCanvas?.isUserInteractionEnabled != true && (touch.type == .pencil || (allowsFinger && touch.type == .direct))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

@@ -10,47 +10,90 @@ struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ReaderModel?
     @State private var showPages = false
-    /// Created the first time the page grid opens, then kept for this document.
+    /// Created with the model; fills its disk cache in the background while the book is open.
     @State private var thumbnails: PageThumbnails?
     @State private var showSearch = false
     /// Kept while the book is open, so the last search is still there.
     @State private var search: BookSearch?
     @State private var showWords = false
+    /// Created with the model, so the notes of every page are known before the notebook opens.
+    @State private var notebook: NotebookModel?
+    @State private var showNotebook = false
+    @State private var showNotes = false
+    /// Highlighter, underline and margin notes over the page, in place of the lasso.
+    @State private var study: StudyModel?
+    @State private var split = NotebookSettings.split
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
             if let model {
-                PageView(model: model, onExit: { dismiss() })
-                    .background(PopGestureDisabler())
-                    .toolbar { toolbar(model) }
-                    .translationTask(model.translationConfig) { session in
-                        await model.translate(using: session)
-                    }
-                    .sheet(isPresented: $showPages) {
-                        if let thumbnails {
-                            PageGridView(pageCount: model.pageCount, currentPage: model.pageIndex,
-                                         thumbnails: thumbnails, select: model.showPage)
-                                .presentationSizing(.page)
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        PageView(model: model, study: study, onExit: { dismiss() })
+                            .frame(width: pageWidth(in: geo.size.width))
+                        if showNotebook, let notebook {
+                            NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
+                                // Drawn over the notebook while it is dragged across it.
+                                .zIndex(1)
+                            NotebookPane(notebook: notebook)
+                                .frame(maxWidth: .infinity)
                         }
                     }
-                    .sheet(isPresented: $showSearch) {
-                        if let search {
-                            SearchView(document: document, search: search, select: model.showMatch)
-                                .presentationSizing(.page)
-                        }
+                    .animation(.snappy, value: showNotebook)
+                    .overlay(alignment: .bottomTrailing) { notebookButton }
+                }
+                .background(PopGestureDisabler())
+                .toolbar { toolbar(model) }
+                .translationTask(model.translationConfig) { session in
+                    await model.translate(using: session)
+                }
+                .onChange(of: model.pageIndex) { _, page in notebook?.show(page) }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active {
+                        notebook?.flush()
+                        study?.flush()
                     }
-                    .sheet(isPresented: $showWords) {
-                        WordsView(currentDocument: document) { word in
-                            if word.documentID == document.id { model.showPage(word.page) }
-                        }
-                        .presentationSizing(.page)
+                }
+                .sheet(isPresented: $showPages) {
+                    if let thumbnails {
+                        PageGridView(pageCount: model.pageCount, currentPage: model.pageIndex,
+                                     thumbnails: thumbnails, notedPages: notebook?.notedPages ?? [],
+                                     markedPages: study?.markedPages ?? [],
+                                     select: model.showPage)
+                            .presentationSizing(.page)
                     }
-                    .alert("Errore", isPresented: Binding(get: { model.alertMessage != nil },
-                                                          set: { if !$0 { model.alertMessage = nil } })) {
-                        Button("OK", role: .cancel) {}
-                    } message: {
-                        Text(model.alertMessage ?? "")
+                }
+                .sheet(isPresented: $showNotes) {
+                    NotesListView(bookID: document.id, pages: notebook?.notedPages.sorted() ?? []) { page in
+                        model.showPage(page)
+                        showNotebook = true
                     }
+                    .presentationSizing(.page)
+                }
+                .sheet(isPresented: Binding(get: { study?.showsGuide == true },
+                                            set: { study?.showsGuide = $0 })) {
+                    StudyGuideView()
+                        .presentationSizing(.form)
+                }
+                .sheet(isPresented: $showSearch) {
+                    if let search {
+                        SearchView(document: document, search: search, select: model.showMatch)
+                            .presentationSizing(.page)
+                    }
+                }
+                .sheet(isPresented: $showWords) {
+                    WordsView(currentDocument: document) { word in
+                        if word.documentID == document.id { model.showPage(word.page) }
+                    }
+                    .presentationSizing(.page)
+                }
+                .alert("Errore", isPresented: Binding(get: { model.alertMessage != nil },
+                                                      set: { if !$0 { model.alertMessage = nil } })) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(model.alertMessage ?? "")
+                }
             } else {
                 ProgressView()
             }
@@ -66,8 +109,49 @@ struct ReaderView: View {
         }
         .onAppear {
             // Created once here, not in init: the model starts OCR as soon as it exists.
-            if model == nil { model = ReaderModel(document: document, library: library, wordList: wordList) }
+            if model == nil {
+                let reader = ReaderModel(document: document, library: library, wordList: wordList)
+                model = reader
+                notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
+                study = StudyModel(bookID: document.id)
+                thumbnails = PageThumbnails(
+                    bookID: document.id, pageCount: document.pageCount,
+                    pdfURL: document.kind == .pdf ? library.pdfURL(of: document) : nil,
+                    pagesFolder: document.kind == .images
+                        ? library.imageURL(of: document, page: 0).deletingLastPathComponent() : nil)
+            }
         }
+        // Fills the thumbnail cache while the book is open; cancelled when it closes.
+        .task(priority: .background) {
+            // The first page and its OCR go first.
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            await thumbnails?.prefetch(from: model?.pageIndex ?? document.lastPage)
+        }
+    }
+
+    /// The book page takes the left share of the width while the notebook is open.
+    private func pageWidth(in total: CGFloat) -> CGFloat? {
+        guard showNotebook else { return nil }
+        return (total - NotebookDivider.width) * split
+    }
+
+    /// Opens and closes the notebook beside the page.
+    private var notebookButton: some View {
+        Button {
+            // Opening the notebook on a page is asking for its note.
+            if !showNotebook { notebook?.startNote() }
+            showNotebook.toggle()
+        } label: {
+            Image(systemName: showNotebook ? "square.and.pencil.circle.fill" : "square.and.pencil")
+                .font(.title2)
+                .frame(width: 56, height: 56)
+                .background(.regularMaterial, in: Circle())
+                .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+        }
+        .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
+        .padding(20)
+        // Above the notebook's tool bar when that sits at the bottom.
+        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
     }
 
     /// Recognizes the whole book in the background; shows the progress while it runs.
@@ -86,29 +170,56 @@ struct ReaderView: View {
         }
     }
 
+    /// Turns study mode on and off: while on, the Pencil marks the page instead of translating.
+    @ViewBuilder private func studyButton(_ study: StudyModel, model: ReaderModel) -> some View {
+        let toggle = {
+            model.clearSelection()
+            study.toggle()
+        }
+        if study.isActive {
+            Button("Esci dalla modalità studio", systemImage: "highlighter", action: toggle)
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+        } else {
+            Button("Modalità studio", systemImage: "highlighter", action: toggle)
+        }
+    }
+
     @ToolbarContentBuilder private func toolbar(_ model: ReaderModel) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button("Pagina precedente", systemImage: "chevron.left") { model.previousPage() }
                 .disabled(model.pageIndex == 0)
             Button {
-                if thumbnails == nil {
-                    thumbnails = switch document.kind {
-                    case .pdf: PageThumbnails(pdfURL: library.pdfURL(of: document), pagesFolder: nil)
-                    case .images: PageThumbnails(pdfURL: nil, pagesFolder: library.imageURL(of: document, page: 0).deletingLastPathComponent())
-                    }
-                }
                 showPages = true
             } label: {
-                Text("\(model.pageIndex + 1) / \(model.pageCount)")
-                    .monospacedDigit()
-                    .font(.callout)
+                HStack(spacing: 4) {
+                    Text("\(model.pageIndex + 1) / \(model.pageCount)")
+                        .monospacedDigit()
+                        .font(.callout)
+                    if notebook?.notedPages.contains(model.pageIndex) == true {
+                        Image(systemName: "pencil.tip")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    if study?.markedPages.contains(model.pageIndex) == true {
+                        Image(systemName: "highlighter")
+                            .font(.caption)
+                            .foregroundStyle(Color(uiColor: StudyColor.key.uiColor))
+                    }
+                }
             }
             .accessibilityLabel("Tutte le pagine")
             Button("Pagina successiva", systemImage: "chevron.right") { model.nextPage() }
                 .disabled(model.pageIndex + 1 >= model.pageCount)
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
+            if let study { studyButton(study, model: model) }
             recognitionButton(model.document)
+            Button("Note del libro", systemImage: "note.text") {
+                // So the page being written on shows up to date in the list.
+                notebook?.flush()
+                showNotes = true
+            }
             Button("Cerca nel libro", systemImage: "magnifyingglass") {
                 if search == nil { search = BookSearch(document: document, library: library) }
                 showSearch = true

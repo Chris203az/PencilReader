@@ -2,8 +2,10 @@ import ReaderCore
 import SwiftUI
 
 /// One page: the image, the recognized-word overlay, the Pencil layer and the translation panel.
+/// In study mode the Pencil marks the page and the study tools float over its bottom.
 struct PageView: View {
     let model: ReaderModel
+    var study: StudyModel?
     let onExit: () -> Void
     @State private var panelHeight: CGFloat = 220
     /// 1 = page fitted to the screen.
@@ -35,7 +37,7 @@ struct PageView: View {
                               found: model.searchHighlightOnPage)
                         .allowsHitTesting(false)
 
-                    LassoCanvas(allowsFinger: model.allowsFingerDrawing,
+                    LassoCanvas(allowsFinger: model.allowsFingerDrawing && !isStudying,
                                 isZoomed: zoom > 1,
                                 onStroke: { model.select(stroke: $0, imageFrame: frame) },
                                 onTap: { model.clearSelection() },
@@ -65,7 +67,8 @@ struct PageView: View {
                                             zoom(by: doubleTapZoom, around: point, base: base, size: geo.size)
                                         }
                                     }
-                                })
+                                },
+                                study: study.map { ($0, $0.isActive, model.pageIndex, frame, model.pageText) })
 
                     if let selection = model.selection {
                         TranslationPanel(selection: selection, onClose: model.clearSelection)
@@ -73,6 +76,13 @@ struct PageView: View {
                             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { panelHeight = $0 }
                             .position(panelCenter(for: selection.anchor.denormalized(in: frame), in: geo.size))
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    }
+
+                    if isStudying, let study {
+                        StudyToolbar(study: study)
+                            .frame(maxWidth: geo.size.width - 2 * margin)
+                            .position(x: geo.size.width / 2, y: geo.size.height - 44)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
 
                     if model.isRecognizing {
@@ -86,12 +96,15 @@ struct PageView: View {
                     }
                 }
                 .animation(.snappy(duration: 0.2), value: model.selection?.id)
+                .animation(.snappy(duration: 0.25), value: isStudying)
             }
         }
         .clipped()
         .background(Color(.secondarySystemBackground))
         .onChange(of: model.pageIndex) { resetZoom() }
     }
+
+    private var isStudying: Bool { study?.isActive == true }
 
     // MARK: Zoom
 
