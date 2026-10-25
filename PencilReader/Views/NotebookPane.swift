@@ -127,6 +127,12 @@ struct NotebookCanvas: UIViewRepresentable {
         let tools = notebook.tools
         if view.canvas.appliedTools?.state != tools.state || view.canvas.appliedTools?.ruler != tools.isRulerActive {
             view.canvas.tool = tools.pkTool
+            #if DEBUG
+            if let eraser = view.canvas.tool as? PKEraserTool {
+                NotebookDiagnostics.log("gomma \(eraser.eraserType == .bitmap ? "pixel" : "tratto") larga \(eraser.width)"
+                    + " (scelta \(tools.eraserWidth), limiti \(tools.eraserRange))")
+            }
+            #endif
             view.canvas.isRulerActive = tools.isRulerActive
             view.canvas.usesLasso = tools.state.current == .lasso
             view.canvas.appliedTools = (tools.state, tools.isRulerActive)
