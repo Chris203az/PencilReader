@@ -120,6 +120,7 @@ public enum ShapeRecognizer {
 
         // Both may fit a rounded square or a polygon with many sides: the closer one wins.
         if polygonFit < .infinity, polygonFit <= ellipse?.fit ?? .infinity {
+            corners = refinedCorners(corners, along: points, size: size)
             if corners.count == 4, let rectangle = rectangle(corners) { corners = rectangle }
             return .polygon(corners)
         }
@@ -255,6 +256,60 @@ public enum ShapeRecognizer {
         let left = simplify(Array(points[...farthest]), epsilon: epsilon)
         let right = simplify(Array(points[farthest...]), epsilon: epsilon)
         return left.dropLast() + right
+    }
+
+    /// Where the straight sides meet. The sampled points kept as corners sit up to half a sample
+    /// short of the real corner, so each side gets a line fitted to its middle part, and the
+    /// corners become the crossings of those lines.
+    static func refinedCorners(_ corners: [CGPoint], along points: [CGPoint], size: CGFloat) -> [CGPoint] {
+        var ring = points
+        if let first = ring.first, let last = ring.last, distance(first, last) < 0.001 { ring.removeLast() }
+        let n = ring.count
+        guard n >= corners.count * 3 else { return corners }
+        let indices = corners.map { corner in
+            ring.indices.min { distance(ring[$0], corner) < distance(ring[$1], corner) } ?? 0
+        }
+        var lines: [(point: CGPoint, direction: CGPoint)] = []
+        for k in corners.indices {
+            let a = indices[k], b = indices[(k + 1) % corners.count]
+            let span = (b - a + n) % n
+            let side = (0...span).map { ring[(a + $0) % n] }
+            // The ends of a side bend into the corners: only its middle is straight.
+            let cut = side.count * 15 / 100
+            let middle = side.count - 2 * cut >= 2 ? Array(side[cut..<(side.count - cut)]) : side
+            guard middle.count >= 2 else { return corners }
+            lines.append(fittedLine(middle))
+        }
+        return corners.indices.map { k in
+            let previous = lines[(k + corners.count - 1) % corners.count]
+            guard let meet = intersection(previous, lines[k]), distance(meet, corners[k]) <= 0.15 * size else {
+                return corners[k]
+            }
+            return meet
+        }
+    }
+
+    /// The line through the points' center, along their main direction.
+    private static func fittedLine(_ points: [CGPoint]) -> (point: CGPoint, direction: CGPoint) {
+        let n = CGFloat(points.count)
+        let cx = points.map(\.x).reduce(0, +) / n, cy = points.map(\.y).reduce(0, +) / n
+        var sxx: CGFloat = 0, syy: CGFloat = 0, sxy: CGFloat = 0
+        for p in points {
+            sxx += (p.x - cx) * (p.x - cx)
+            syy += (p.y - cy) * (p.y - cy)
+            sxy += (p.x - cx) * (p.y - cy)
+        }
+        let angle = 0.5 * atan2(2 * sxy, sxx - syy)
+        return (CGPoint(x: cx, y: cy), CGPoint(x: cos(angle), y: sin(angle)))
+    }
+
+    private static func intersection(_ first: (point: CGPoint, direction: CGPoint),
+                                     _ second: (point: CGPoint, direction: CGPoint)) -> CGPoint? {
+        let d = first.direction, e = second.direction
+        let denominator = d.x * e.y - d.y * e.x
+        guard abs(denominator) > 0.000_001 else { return nil }
+        let t = ((second.point.x - first.point.x) * e.y - (second.point.y - first.point.y) * e.x) / denominator
+        return CGPoint(x: first.point.x + t * d.x, y: first.point.y + t * d.y)
     }
 
     /// A closed stroke ends near its start: that end is the same corner.

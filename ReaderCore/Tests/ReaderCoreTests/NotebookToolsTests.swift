@@ -81,7 +81,7 @@ struct NotebookToolbarLayoutTests {
         #expect(fixed.position == .bottom)
         #expect(fixed.entries.count == NotebookToolbarItem.allCases.count)
         #expect(Array(fixed.entries.prefix(2)) == [.init(item: .undo, isVisible: true), .init(item: .pen, isVisible: false)])
-        #expect(fixed.entries.dropFirst(2).allSatisfy(\.isVisible))
+        #expect(fixed.entries.dropFirst(2).allSatisfy { $0.isVisible })
     }
 
     @Test func savedLayoutComesBackTheSame() throws {
