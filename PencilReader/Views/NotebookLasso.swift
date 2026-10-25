@@ -378,8 +378,11 @@ final class LassoEditor: NSObject {
 
     private func showSelectionMenu() {
         guard let frame = selection?.frame else { return }
-        let top = frame.corners.map(screenPoint).min { $0.y < $1.y } ?? .zero
-        menu.presentEditMenu(with: UIEditMenuConfiguration(identifier: Self.selectionMenu, sourcePoint: top))
+        let bottom = frame.corners.map(screenPoint).max { $0.y < $1.y } ?? .zero
+        let configuration = UIEditMenuConfiguration(identifier: Self.selectionMenu, sourcePoint: bottom)
+        // Below the selection, as asked; UIKit puts it above only when there is no room below.
+        configuration.preferredArrowDirection = .up
+        menu.presentEditMenu(with: configuration)
     }
 
     private func copySelection() {
@@ -434,11 +437,15 @@ final class LassoEditor: NSObject {
         var drawing = canvas.drawing
         for index in selection.indices {
             let stroke = drawing.strokes[index]
-            drawing.strokes[index] = PKStroke(ink: PKInk(stroke.ink.inkType, color: color), path: stroke.path,
-                                              transform: stroke.transform, mask: stroke.mask)
+            // Changing only the ink keeps everything else, the seed that marks a shape included.
+            var recolored = stroke
+            recolored.ink = PKInk(stroke.ink.inkType, color: color)
+            drawing.strokes[index] = recolored
         }
         selection.originals = zip(selection.originals, selection.indices).map { original, index in
-            PKStroke(ink: drawing.strokes[index].ink, path: original.path, transform: original.transform, mask: original.mask)
+            var recolored = original
+            recolored.ink = drawing.strokes[index].ink
+            return recolored
         }
         self.selection = selection
         change(to: drawing)

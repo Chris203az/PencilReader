@@ -144,6 +144,8 @@ final class NotebookSheetView: UIView {
     private let toast = UILabel()
     /// The lasso's loop, box and menu, drawn over the canvas.
     private var lasso: LassoEditor!
+    /// The grips of the shape a finger tapped.
+    private var shapes: ShapeEditor!
 
     var paper: PaperStyle = .grid {
         didSet { paperView.style = paper }
@@ -171,10 +173,13 @@ final class NotebookSheetView: UIView {
         KeyboardProbe.start()
         #endif
         canvas.lasso = lasso
+        shapes = ShapeEditor(canvas: canvas, host: self)
+        canvas.shapeEditor = shapes
         canvas.onScroll = { [weak self] offset, zoom in
             self?.paperView.show(offset: offset, zoom: zoom)
             self?.drawPreview()
             self?.lasso.redraw()
+            self?.shapes.redraw()
         }
         canvas.onSwipeAction = { [weak self] name in self?.showToast(name) }
         canvas.onShapePreview = { [weak self] shape, color, width in
@@ -193,6 +198,7 @@ final class NotebookSheetView: UIView {
         preview.frame = bounds
         canvas.fitContent()
         lasso.redraw()
+        shapes.redraw()
     }
 
     private func showPreview(_ shape: InkShape?, color: UIColor, width: CGFloat) {
@@ -252,12 +258,15 @@ final class NotebookCanvasView: PKCanvasView {
     var appliedTools: (state: NotebookToolState, ruler: Bool)?
     /// The notebook's own lasso, which takes the Pencil instead of PencilKit while it is in hand.
     weak var lasso: LassoEditor?
+    /// Reshapes the clean shapes a finger taps.
+    weak var shapeEditor: ShapeEditor?
     var usesLasso = false {
         didSet {
             guard usesLasso != oldValue else { return }
             drawingGestureRecognizer.isEnabled = !usesLasso
             hold.isEnabled = !usesLasso
             lasso?.isActive = usesLasso
+            shapeEditor?.isEnabled = !usesLasso
         }
     }
     /// Never the canvas itself: a canvas that is its own delegate also answers
@@ -267,6 +276,8 @@ final class NotebookCanvasView: PKCanvasView {
     private var swipes: [UISwipeGestureRecognizer] = []
     private let simultaneous = SimultaneousGestures()
     private let pencilTaps = PencilTaps()
+    /// A finger's double tap puts the zoom back to 1x; single taps wait for it to fail.
+    let doubleTap = UITapGestureRecognizer()
 
     /// The shape found when the Pencil was held, the point that stays put and where the tip was.
     private var snapped: (shape: InkShape, anchor: CGPoint, tip: CGPoint)?
@@ -312,7 +323,7 @@ final class NotebookCanvasView: PKCanvasView {
             addGestureRecognizer(swipe)
             swipes.append(swipe)
         }
-        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(doubleTapped))
+        doubleTap.addTarget(self, action: #selector(doubleTapped))
         doubleTap.numberOfTapsRequired = 2
         doubleTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
         addGestureRecognizer(doubleTap)
@@ -345,7 +356,7 @@ final class NotebookCanvasView: PKCanvasView {
 
     /// A touch the lasso has taken neither scrolls the page nor counts as an undo swipe.
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if lasso?.holdsTouch == true,
+        if lasso?.holdsTouch == true || shapeEditor?.holdsTouch == true,
            gestureRecognizer === panGestureRecognizer || swipes.contains(where: { $0 === gestureRecognizer }) {
             return false
         }
@@ -387,6 +398,7 @@ final class NotebookCanvasView: PKCanvasView {
         DispatchQueue.main.async { [weak self] in self?.fitContent() }
         notebook?.drawingDidChange()
         lasso?.drawingChanged()
+        shapeEditor?.drawingChanged()
         if !isReplacing, liftedWithShape { replaceStrokeIfAdded() }
     }
 
@@ -448,16 +460,27 @@ final class NotebookCanvasView: PKCanvasView {
         }
     }
 
-    /// Same ink and width as the hand-drawn stroke, through the shape's outline.
-    private func replaceLastStroke(with shape: InkShape) {
-        guard let stroke = drawing.strokes.last, !stroke.path.isEmpty else { return }
+    /// A stroke along the shape's outline, with the ink and the width `stroke` shows on the page,
+    /// and no transform. Its seed ties it to the shape, so it can be reshaped later.
+    func shapeStroke(_ shape: InkShape, like stroke: PKStroke) -> PKStroke? {
+        guard !stroke.path.isEmpty else { return nil }
         let sample = stroke.path[stroke.path.count / 2]
+        // A stroke the lasso has scaled looks that much wider: the new one keeps that width.
+        let t = stroke.transform
+        let scale = abs(t.a * t.d - t.b * t.c).squareRoot()
+        let size = CGSize(width: sample.size.width * scale, height: sample.size.height * scale)
         let controls = shape.outline().enumerated().map { i, location in
-            PKStrokePoint(location: location, timeOffset: TimeInterval(i) * 0.005, size: sample.size,
+            PKStrokePoint(location: location, timeOffset: TimeInterval(i) * 0.005, size: size,
                           opacity: sample.opacity, force: sample.force, azimuth: sample.azimuth, altitude: sample.altitude)
         }
-        let shapeStroke = PKStroke(ink: stroke.ink,
-                                   path: PKStrokePath(controlPoints: controls, creationDate: stroke.path.creationDate))
+        var result = PKStroke(ink: stroke.ink, path: PKStrokePath(controlPoints: controls, creationDate: stroke.path.creationDate))
+        if let notebook { result.randomSeed = notebook.register(shape) }
+        return result
+    }
+
+    /// Same ink and width as the hand-drawn stroke, through the shape's outline.
+    private func replaceLastStroke(with shape: InkShape) {
+        guard let stroke = drawing.strokes.last, let shapeStroke = self.shapeStroke(shape, like: stroke) else { return }
         // As in GoodNotes, one Annulla takes the whole shape away: PencilKit's own step for the
         // hand-drawn stroke is undone first, and the shape is added as a single step instead.
         if let undoManager, undoManager.canUndo {

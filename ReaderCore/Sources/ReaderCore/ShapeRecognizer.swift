@@ -2,12 +2,16 @@ import CoreGraphics
 import Foundation
 
 /// A clean shape that a hand-drawn stroke is turned into.
-public enum InkShape: Equatable, Sendable {
+public enum InkShape: Equatable, Sendable, Codable {
     case line(CGPoint, CGPoint)
     /// Corners in drawing order; the outline closes back to the first one.
     case polygon([CGPoint])
     /// `angle` turns the `radii.width` axis away from horizontal. A circle has equal radii.
     case ellipse(center: CGPoint, radii: CGSize, angle: CGFloat)
+    /// The piece of circle from `start` to `end` that goes through `through`.
+    case arc(start: CGPoint, through: CGPoint, end: CGPoint)
+    /// A smooth open curve through its control points (Catmull-Rom).
+    case curve([CGPoint])
 
     /// Points along the outline, at most `spacing` apart, every corner included;
     /// closed shapes end where they start. Dense enough that PencilKit keeps the corners sharp.
@@ -30,7 +34,65 @@ public enum InkShape: Equatable, Sendable {
                 return CGPoint(x: center.x + x * cos(angle) - y * sin(angle),
                                y: center.y + x * sin(angle) + y * cos(angle))
             }
+        case .arc(let start, let through, let end):
+            guard let circle = Self.arcCircle(start, through, end) else {
+                return Self.segment(start, end, spacing: spacing) + [end]
+            }
+            let count = max(8, Int((abs(circle.sweep) * circle.radius / spacing).rounded(.up)))
+            return (0...count).map { i in
+                let t = circle.startAngle + circle.sweep * CGFloat(i) / CGFloat(count)
+                return CGPoint(x: circle.center.x + circle.radius * cos(t), y: circle.center.y + circle.radius * sin(t))
+            }
+        case .curve(let controls):
+            return Self.catmullRom(controls, spacing: spacing)
         }
+    }
+
+    /// The circle through the three points of an arc, where the arc starts on it and how far it turns
+    /// (negative counterclockwise on screen); nil when the points are nearly in a line.
+    static func arcCircle(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint)
+        -> (center: CGPoint, radius: CGFloat, startAngle: CGFloat, sweep: CGFloat)? {
+        let d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
+        let size = max(distance(a, b) + distance(b, c), 0.001)
+        guard abs(d) > 0.000_1 * size * size else { return nil }
+        let a2 = a.x * a.x + a.y * a.y, b2 = b.x * b.x + b.y * b.y, c2 = c.x * c.x + c.y * c.y
+        let center = CGPoint(x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
+                             y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d)
+        let radius = distance(center, a)
+        // A circle much bigger than the arc is a line drawn slightly bent.
+        guard radius < 50 * size else { return nil }
+        let start = atan2(a.y - center.y, a.x - center.x)
+        func turn(to p: CGPoint) -> CGFloat {
+            var t = atan2(p.y - center.y, p.x - center.x) - start
+            while t < 0 { t += 2 * .pi }
+            return t
+        }
+        let toEnd = turn(to: c), toMiddle = turn(to: b)
+        // The way round from the start that passes the middle point before the end.
+        let sweep = toMiddle <= toEnd ? toEnd : toEnd - 2 * .pi
+        return (center, radius, start, sweep)
+    }
+
+    /// Points along the Catmull-Rom curve through `controls`, ends included.
+    static func catmullRom(_ controls: [CGPoint], spacing: CGFloat) -> [CGPoint] {
+        guard controls.count > 2 else {
+            guard controls.count == 2 else { return controls }
+            return segment(controls[0], controls[1], spacing: spacing) + [controls[1]]
+        }
+        var points: [CGPoint] = []
+        let padded = [controls[0]] + controls + [controls[controls.count - 1]]
+        for i in 1..<(padded.count - 2) {
+            let p0 = padded[i - 1], p1 = padded[i], p2 = padded[i + 1], p3 = padded[i + 2]
+            let steps = max(2, Int((distance(p1, p2) * 1.2 / spacing).rounded(.up)))
+            for j in 0..<steps {
+                let t = CGFloat(j) / CGFloat(steps), t2 = t * t, t3 = t2 * t
+                func blend(_ a: CGFloat, _ b: CGFloat, _ c: CGFloat, _ d: CGFloat) -> CGFloat {
+                    0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
+                }
+                points.append(CGPoint(x: blend(p0.x, p1.x, p2.x, p3.x), y: blend(p0.y, p1.y, p2.y, p3.y)))
+            }
+        }
+        return points + [controls[controls.count - 1]]
     }
 
     /// The point of the shape that stays put while the Pencil drags it: the farthest from the tip.
@@ -41,6 +103,8 @@ public enum InkShape: Equatable, Sendable {
         case .line(let a, let b): candidates = [a, b]
         case .polygon(let corners): candidates = corners
         case .ellipse: candidates = outline(spacing: 8)
+        case .arc(let start, _, let end): candidates = [start, end]
+        case .curve(let controls): candidates = [controls[0], controls[controls.count - 1]]
         }
         return candidates.max { distance($0, tip) < distance($1, tip) } ?? tip
     }
@@ -68,6 +132,10 @@ public enum InkShape: Equatable, Sendable {
             return .ellipse(center: move(center),
                             radii: CGSize(width: radii.width * scale, height: radii.height * scale),
                             angle: isCircle ? 0 : angle + turn)
+        case .arc(let start, let through, let end):
+            return .arc(start: move(start), through: move(through), end: move(end))
+        case .curve(let controls):
+            return .curve(controls.map(move))
         }
     }
 
@@ -101,12 +169,15 @@ public enum ShapeRecognizer {
 
         if chord > 0.85 * length {
             let deviation = points.map { Polygon.segmentDistance($0, first, last) }.max() ?? 0
-            guard deviation <= 0.06 * chord else { return nil }
-            let (a, b) = straightened(first, last)
-            return .line(a, b)
+            if deviation <= 0.06 * chord {
+                let (a, b) = straightened(first, last)
+                return .line(a, b)
+            }
         }
-        // Every other shape comes back to where it started.
-        guard chord <= 0.2 * length else { return nil }
+        // An open stroke is a piece of circle, a smooth curve, or nothing.
+        if chord > 0.2 * length {
+            return arc(points, size: size) ?? smoothCurve(points, size: size)
+        }
 
         var polygonFit = CGFloat.infinity
         var corners = dropFlatCorners(closingEnd(simplify(points, epsilon: 0.07 * size), size: size))
@@ -128,6 +199,70 @@ public enum ShapeRecognizer {
     }
 
     // MARK: Shapes
+
+    /// An open stroke that keeps close to one circle and turns between 30° and 330° around it.
+    static func arc(_ points: [CGPoint], size: CGFloat) -> InkShape? {
+        guard let circle = fittedCircle(points), circle.radius < 10 * size else { return nil }
+        let residuals = points.map { abs(distance($0, circle.center) - circle.radius) }
+        let mean = residuals.reduce(0, +) / CGFloat(residuals.count)
+        guard mean <= 0.035 * circle.radius, (residuals.max() ?? 0) <= 0.1 * circle.radius else { return nil }
+        var turned: CGFloat = 0, travelled: CGFloat = 0
+        for (a, b) in zip(points, points.dropFirst()) {
+            var step = atan2(b.y - circle.center.y, b.x - circle.center.x) - atan2(a.y - circle.center.y, a.x - circle.center.x)
+            if step > .pi { step -= 2 * .pi }
+            if step < -.pi { step += 2 * .pi }
+            turned += step
+            travelled += abs(step)
+        }
+        // Always the same way round: a stroke that goes back and forth is not an arc.
+        guard travelled <= 1.1 * abs(turned), (30...330).contains(abs(turned) * 180 / .pi) else { return nil }
+        func onCircle(_ p: CGPoint) -> CGPoint {
+            let d = max(distance(p, circle.center), 0.000_1)
+            return CGPoint(x: circle.center.x + (p.x - circle.center.x) * circle.radius / d,
+                           y: circle.center.y + (p.y - circle.center.y) * circle.radius / d)
+        }
+        return .arc(start: onCircle(points[0]), through: onCircle(points[points.count / 2]), end: onCircle(points[points.count - 1]))
+    }
+
+    /// An open stroke without corners: a smooth curve through four to eight points along it.
+    static func smoothCurve(_ points: [CGPoint], size: CGFloat) -> InkShape? {
+        // A sharp turn anywhere, as in a 2, a 7 or a zigzag, is a corner: not a curve.
+        let k = 3
+        for i in k..<(points.count - k) {
+            let u = CGPoint(x: points[i].x - points[i - k].x, y: points[i].y - points[i - k].y)
+            let v = CGPoint(x: points[i + k].x - points[i].x, y: points[i + k].y - points[i].y)
+            let lengths = hypot(u.x, u.y) * hypot(v.x, v.y)
+            guard lengths > 0 else { continue }
+            let turn = acos(max(-1, min(1, (u.x * v.x + u.y * v.y) / lengths)))
+            if turn > 65 * .pi / 180 { return nil }
+        }
+        let count = min(8, max(4, simplify(points, epsilon: 0.03 * size).count))
+        let controls = (0..<count).map { j in points[Int((CGFloat(j) * CGFloat(points.count - 1) / CGFloat(count - 1)).rounded())] }
+        let curve = InkShape.catmullRom(controls, spacing: 2)
+        let deviation = points.map { p in
+            zip(curve, curve.dropFirst()).map { Polygon.segmentDistance(p, $0.0, $0.1) }.min() ?? .infinity
+        }.max() ?? .infinity
+        guard deviation <= 0.06 * size else { return nil }
+        return .curve(controls)
+    }
+
+    /// Least-squares circle through the points (Kåsa), around their center for precision.
+    static func fittedCircle(_ points: [CGPoint]) -> (center: CGPoint, radius: CGFloat)? {
+        let n = CGFloat(points.count)
+        let mx = points.map(\.x).reduce(0, +) / n, my = points.map(\.y).reduce(0, +) / n
+        var suu: CGFloat = 0, svv: CGFloat = 0, suv: CGFloat = 0, suuu: CGFloat = 0, svvv: CGFloat = 0, suvv: CGFloat = 0, svuu: CGFloat = 0
+        for p in points {
+            let u = p.x - mx, v = p.y - my
+            suu += u * u; svv += v * v; suv += u * v
+            suuu += u * u * u; svvv += v * v * v; suvv += u * v * v; svuu += v * u * u
+        }
+        let det = suu * svv - suv * suv
+        guard abs(det) > 0.000_001 else { return nil }
+        let b1 = (suuu + suvv) / 2, b2 = (svvv + svuu) / 2
+        let uc = (b1 * svv - b2 * suv) / det, vc = (suu * b2 - suv * b1) / det
+        let radius = (uc * uc + vc * vc + (suu + svv) / n).squareRoot()
+        return (CGPoint(x: mx + uc, y: my + vc), radius)
+    }
 
     /// Four corners at nearly right angles make a true rectangle, a square when the sides nearly match.
     static func rectangle(_ corners: [CGPoint]) -> [CGPoint]? {

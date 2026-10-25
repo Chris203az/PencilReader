@@ -25,6 +25,9 @@ final class NotebookModel {
         didSet { UserDefaults.standard.set(straightensShapes, forKey: Self.shapesKey) }
     }
 
+    /// The clean shapes on the page shown, by the random seed of their stroke, as drawn before any
+    /// transform the stroke carries. Shapes no longer on the page stay until it is saved, for Annulla.
+    @ObservationIgnored private(set) var shapes: [UInt32: InkShape] = [:]
     @ObservationIgnored private weak var canvas: NotebookCanvasView?
     /// The page whose drawing the canvas shows. It can differ from `pageIndex` only while
     /// a page change is being handled, so saving always goes to the page that was written on.
@@ -89,11 +92,20 @@ final class NotebookModel {
         saveTask?.cancel()
         saveTask = nil
         guard let canvas, let page = canvasPage else { return }
+        NoteStore.saveShapes(shapes, for: canvas.drawing, of: bookID, page: page)
         if NoteStore.save(canvas.drawing, of: bookID, page: page) {
             notedPages.insert(page)
         } else {
             notedPages.remove(page)
         }
+    }
+
+    /// Remembers a shape about to be put on the page; its stroke must carry the seed returned.
+    func register(_ shape: InkShape) -> UInt32 {
+        var seed = UInt32.random(in: 1...UInt32.max)
+        while shapes[seed] != nil { seed = UInt32.random(in: 1...UInt32.max) }
+        shapes[seed] = shape
+        return seed
     }
 
     func undo() { canvas?.undoManager?.undo() }
@@ -102,6 +114,7 @@ final class NotebookModel {
     private func loadDrawing() {
         guard let canvas else { return }
         canvasPage = pageIndex
+        shapes = NoteStore.shapes(of: bookID, page: pageIndex)
         canvas.drawing = NoteStore.drawing(of: bookID, page: pageIndex) ?? PKDrawing()
         canvas.undoManager?.removeAllActions()
         canvas.resetZoom()
