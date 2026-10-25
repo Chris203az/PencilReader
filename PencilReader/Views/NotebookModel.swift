@@ -15,6 +15,8 @@ final class NotebookModel {
     private(set) var notedPages: Set<Int>
     /// Whether the current page is showing its note, the canvas to write on.
     private(set) var isWriting: Bool
+    /// The tool in hand, its color and width, and how the tool bar is laid out.
+    let tools = NotebookTools()
     var paper: PaperStyle {
         didSet { UserDefaults.standard.set(paper.rawValue, forKey: Self.paperKey) }
     }

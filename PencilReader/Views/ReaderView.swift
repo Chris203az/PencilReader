@@ -126,6 +126,8 @@ struct ReaderView: View {
     /// Opens and closes the notebook beside the page.
     private var notebookButton: some View {
         Button {
+            // Opening the notebook on a page is asking for its note.
+            if !showNotebook { notebook?.startNote() }
             showNotebook.toggle()
         } label: {
             Image(systemName: showNotebook ? "square.and.pencil.circle.fill" : "square.and.pencil")
@@ -136,6 +138,8 @@ struct ReaderView: View {
         }
         .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
         .padding(20)
+        // Above the notebook's tool bar when that sits at the bottom.
+        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
     }
 
     /// Recognizes the whole book in the background; shows the progress while it runs.

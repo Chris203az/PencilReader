@@ -6,11 +6,16 @@ import UIKit.UIGestureRecognizerSubclass
 /// The notebook next to the book page: a header, then a page the Pencil writes on.
 struct NotebookPane: View {
     @Bindable var notebook: NotebookModel
+    @State private var showsToolbarSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
+            if notebook.tools.layout.position == .top {
+                toolbar
+                Divider()
+            }
             if notebook.isWriting {
                 NotebookCanvas(notebook: notebook)
             } else {
@@ -20,9 +25,22 @@ struct NotebookPane: View {
                     Button("Nuova nota") { notebook.startNote() }
                         .buttonStyle(.borderedProminent)
                 }
+                .frame(maxHeight: .infinity)
+            }
+            if notebook.tools.layout.position == .bottom {
+                Divider()
+                toolbar
             }
         }
         .background(Color(.systemBackground))
+        .sheet(isPresented: $showsToolbarSettings) {
+            ToolbarSettingsView(tools: notebook.tools)
+        }
+    }
+
+    private var toolbar: some View {
+        NotebookToolbar(notebook: notebook)
+            .disabled(!notebook.isWriting)
     }
 
     private var header: some View {
@@ -31,11 +49,8 @@ struct NotebookPane: View {
                 .font(.headline)
                 .monospacedDigit()
             Spacer()
-            Button("Annulla", systemImage: "arrow.uturn.backward") { notebook.undo() }
-                .disabled(!notebook.isWriting)
-            Button("Ripeti", systemImage: "arrow.uturn.forward") { notebook.redo() }
-                .disabled(!notebook.isWriting)
             Menu("Opzioni", systemImage: "slider.horizontal.3") {
+                Button("Barra strumenti…", systemImage: "rectangle.topthird.inset.filled") { showsToolbarSettings = true }
                 Picker("Sfondo", selection: $notebook.paper) {
                     ForEach(PaperStyle.allCases, id: \.self) { style in
                         Text(style.label).tag(style)
@@ -101,6 +116,12 @@ struct NotebookCanvas: UIViewRepresentable {
 
     func updateUIView(_ view: NotebookSheetView, context: Context) {
         view.paper = notebook.paper
+        let tools = notebook.tools
+        if view.canvas.appliedTools?.state != tools.state || view.canvas.appliedTools?.ruler != tools.isRulerActive {
+            view.canvas.tool = tools.pkTool
+            view.canvas.isRulerActive = tools.isRulerActive
+            view.canvas.appliedTools = (tools.state, tools.isRulerActive)
+        }
     }
 
     static func dismantleUIView(_ view: NotebookSheetView, coordinator: Void) {
@@ -217,13 +238,15 @@ final class NotebookCanvasView: PKCanvasView {
     /// Shows the shape snapped while the Pencil is held, in the ink's color and width; nil hides it.
     var onShapePreview: ((InkShape?, UIColor, CGFloat) -> Void)?
 
-    private let toolPicker = PKToolPicker()
+    /// What the tool bar last set, so the tool is only replaced when the choice changes.
+    var appliedTools: (state: NotebookToolState, ruler: Bool)?
     /// Never the canvas itself: a canvas that is its own delegate also answers
     /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
     private let events = CanvasEvents()
     private let hold = PencilHoldRecognizer(target: nil, action: nil)
     private var swipes: [UISwipeGestureRecognizer] = []
     private let simultaneous = SimultaneousGestures()
+    private let pencilTaps = PencilTaps()
 
     /// The shape found when the Pencil was held, the point that stays put and where the tip was.
     private var snapped: (shape: InkShape, anchor: CGPoint, tip: CGPoint)?
@@ -240,8 +263,11 @@ final class NotebookCanvasView: PKCanvasView {
         alwaysBounceVertical = true
         backgroundColor = .clear
         events.canvas = self
+        pencilTaps.canvas = self
         delegate = events
-        toolPicker.addObserver(self)
+        let pencilInteraction = UIPencilInteraction()
+        pencilInteraction.delegate = pencilTaps
+        addInteraction(pencilInteraction)
         hold.onBegin = { [weak self] in self?.strokeBegan() }
         hold.onHold = { [weak self] points in
             guard let self else { return false }
@@ -279,7 +305,7 @@ final class NotebookCanvasView: PKCanvasView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         guard window != nil else { return }
-        toolPicker.setVisible(true, forFirstResponder: self)
+        // First responder, so Annulla and Ripristina reach the canvas' undo manager.
         becomeFirstResponder()
     }
 
@@ -452,6 +478,15 @@ private final class CanvasEvents: NSObject, PKCanvasViewDelegate {
 
     func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
         canvas?.fitContent()
+    }
+}
+
+/// The double tap on Apple Pencil 2.
+private final class PencilTaps: NSObject, UIPencilInteractionDelegate {
+    weak var canvas: NotebookCanvasView?
+
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+        canvas?.notebook?.tools.pencilDoubleTap()
     }
 }
 
