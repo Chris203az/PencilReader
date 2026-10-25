@@ -10,7 +10,7 @@ struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ReaderModel?
     @State private var showPages = false
-    /// Created the first time the page grid opens, then kept for this document.
+    /// Created with the model; fills its disk cache in the background while the book is open.
     @State private var thumbnails: PageThumbnails?
     @State private var showSearch = false
     /// Kept while the book is open, so the last search is still there.
@@ -102,7 +102,18 @@ struct ReaderView: View {
                 let reader = ReaderModel(document: document, library: library, wordList: wordList)
                 model = reader
                 notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
+                thumbnails = PageThumbnails(
+                    bookID: document.id, pageCount: document.pageCount,
+                    pdfURL: document.kind == .pdf ? library.pdfURL(of: document) : nil,
+                    pagesFolder: document.kind == .images
+                        ? library.imageURL(of: document, page: 0).deletingLastPathComponent() : nil)
             }
+        }
+        // Fills the thumbnail cache while the book is open; cancelled when it closes.
+        .task(priority: .background) {
+            // The first page and its OCR go first.
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            await thumbnails?.prefetch(from: model?.pageIndex ?? document.lastPage)
         }
     }
 
@@ -148,12 +159,6 @@ struct ReaderView: View {
             Button("Pagina precedente", systemImage: "chevron.left") { model.previousPage() }
                 .disabled(model.pageIndex == 0)
             Button {
-                if thumbnails == nil {
-                    thumbnails = switch document.kind {
-                    case .pdf: PageThumbnails(pdfURL: library.pdfURL(of: document), pagesFolder: nil)
-                    case .images: PageThumbnails(pdfURL: nil, pagesFolder: library.imageURL(of: document, page: 0).deletingLastPathComponent())
-                    }
-                }
                 showPages = true
             } label: {
                 HStack(spacing: 4) {

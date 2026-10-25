@@ -92,33 +92,84 @@ private struct PageThumbnailCell: View {
     }
 }
 
-/// Small page images, rendered off the main thread and kept in memory while
-/// the document is open.
+/// Small page images, rendered off the main thread. Kept in memory while the
+/// book is open and on disk in Caches/Thumbnails/<book id>/, so the grid
+/// opens instantly the second time.
 actor PageThumbnails {
-    private static let maxPixels: CGFloat = 400
+    /// The size of a grid cell: PDFKit renders it at the screen scale.
+    private static let cellSize = CGSize(width: 170, height: 190)
+    /// Pixel cap for page images, the cell height at 2×.
+    private static let maxPixels: CGFloat = 380
 
-    private let pdf: PDFDocument?
+    private let pdfURL: URL?
     private let pagesFolder: URL?
-    private let cache = NSCache<NSNumber, UIImage>()
+    private let pageCount: Int
+    private let diskFolder: URL
+    /// Opened on first use, off the main thread. Own instance: PDFDocument is not
+    /// thread-safe, so it must not be shared with the page view or the OCR.
+    private var pdf: PDFDocument?
+    private let memory = NSCache<NSNumber, UIImage>()
 
-    init(pdfURL: URL?, pagesFolder: URL?) {
-        pdf = pdfURL.flatMap(PDFDocument.init(url:))
+    init(bookID: UUID, pageCount: Int, pdfURL: URL?, pagesFolder: URL?) {
+        self.pdfURL = pdfURL
         self.pagesFolder = pagesFolder
-        cache.countLimit = 200
+        self.pageCount = pageCount
+        diskFolder = Self.cacheFolder(of: bookID)
+        try? FileManager.default.createDirectory(at: diskFolder, withIntermediateDirectories: true)
+        memory.totalCostLimit = 50 * 1024 * 1024
+    }
+
+    static func cacheFolder(of bookID: UUID) -> URL {
+        URL.cachesDirectory.appending(path: "Thumbnails/\(bookID.uuidString)", directoryHint: .isDirectory)
+    }
+
+    static func deleteCache(of bookID: UUID) {
+        try? FileManager.default.removeItem(at: cacheFolder(of: bookID))
     }
 
     func thumbnail(at index: Int) -> UIImage? {
-        if let cached = cache.object(forKey: index as NSNumber) { return cached }
+        if let cached = memory.object(forKey: index as NSNumber) { return cached }
         // Cells scrolled past before their turn don't need rendering.
         if Task.isCancelled { return nil }
-        let image = autoreleasepool { render(index) }
-        if let image { cache.setObject(image, forKey: index as NSNumber) }
+        let image = autoreleasepool { fromDisk(index) ?? renderAndSave(index) }
+        if let image { memory.setObject(image, forKey: index as NSNumber, cost: Self.cost(of: image)) }
+        return image
+    }
+
+    /// Saves to disk, at low priority, the pages not cached yet: first the ones
+    /// after `page`, then the ones before. Stops as soon as the task is cancelled.
+    func prefetch(from page: Int) async {
+        let start = min(max(page, 0), pageCount)
+        for index in Array(start..<pageCount) + Array(0..<start).reversed() {
+            if Task.isCancelled { return }
+            if !FileManager.default.fileExists(atPath: diskURL(index).path(percentEncoded: false)) {
+                autoreleasepool { _ = renderAndSave(index) }
+            }
+            // Lets the grid cells, at higher priority, go first.
+            await Task.yield()
+        }
+    }
+
+    private func diskURL(_ index: Int) -> URL {
+        diskFolder.appending(path: String(format: "%04d.jpg", index))
+    }
+
+    private func fromDisk(_ index: Int) -> UIImage? {
+        guard let data = try? Data(contentsOf: diskURL(index)), let image = UIImage(data: data) else { return nil }
+        // Decoded here rather than on the main thread while scrolling.
+        return image.preparingForDisplay() ?? image
+    }
+
+    private func renderAndSave(_ index: Int) -> UIImage? {
+        guard let image = render(index) else { return nil }
+        try? image.jpegData(compressionQuality: 0.7)?.write(to: diskURL(index), options: .atomic)
         return image
     }
 
     private func render(_ index: Int) -> UIImage? {
-        if let pdf {
-            return pdf.page(at: index).map { PageImages.render($0, maxDimension: Self.maxPixels) }
+        if let pdfURL {
+            if pdf == nil { pdf = PDFDocument(url: pdfURL) }
+            return pdf?.page(at: index)?.thumbnail(of: Self.cellSize, for: .cropBox)
         }
         guard let pagesFolder else { return nil }
         let url = pagesFolder.appending(path: String(format: "%04d.jpg", index))
@@ -128,5 +179,10 @@ actor PageThumbnails {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
         return UIImage(cgImage: cgImage)
+    }
+
+    private static func cost(of image: UIImage) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        return cgImage.bytesPerRow * cgImage.height
     }
 }
