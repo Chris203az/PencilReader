@@ -257,7 +257,7 @@ final class NotebookCanvasView: PKCanvasView {
         minimumZoomScale = 1
         maximumZoomScale = 4
         bouncesZoom = true
-        // A finger swiped sideways undoes (left) or redoes (right); scrolling up and down still works.
+        // A finger swiped sideways undoes (right) or redoes (left); scrolling up and down still works.
         for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
             let swipe = UISwipeGestureRecognizer(target: self, action: #selector(swiped(_:)))
             swipe.direction = direction
@@ -314,10 +314,10 @@ final class NotebookCanvasView: PKCanvasView {
 
     @objc private func swiped(_ swipe: UISwipeGestureRecognizer) {
         guard let undoManager else { return }
-        if swipe.direction == .left, undoManager.canUndo {
+        if swipe.direction == .right, undoManager.canUndo {
             undoManager.undo()
             onSwipeAction?("Annulla")
-        } else if swipe.direction == .right, undoManager.canRedo {
+        } else if swipe.direction == .left, undoManager.canRedo {
             undoManager.redo()
             onSwipeAction?("Ripristina")
         }
