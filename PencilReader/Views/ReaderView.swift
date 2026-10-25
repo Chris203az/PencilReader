@@ -24,13 +24,22 @@ struct ReaderView: View {
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
+    /// Normal, sepia or night page; remembered per book.
+    @State private var theme: ReadingTheme
+
+    init(document: LibraryDocument) {
+        self.document = document
+        _theme = State(initialValue: ReadingTheme.saved(for: document.id))
+    }
 
     var body: some View {
         Group {
             if let model {
                 GeometryReader { geo in
                     HStack(spacing: 0) {
-                        PageView(model: model, study: study, onExit: { dismiss() })
+                        PageView(model: model, study: study, theme: theme.resolved(for: colorScheme),
+                                 onExit: { dismiss() })
                             .frame(width: pageWidth(in: geo.size.width))
                         if showNotebook, let notebook {
                             NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
@@ -49,6 +58,7 @@ struct ReaderView: View {
                     await model.translate(using: session)
                 }
                 .onChange(of: model.pageIndex) { _, page in notebook?.show(page) }
+                .onChange(of: theme) { _, theme in ReadingTheme.save(theme, for: document.id) }
                 .onChange(of: scenePhase) { _, phase in
                     if phase != .active {
                         notebook?.flush()
@@ -185,6 +195,20 @@ struct ReaderView: View {
         }
     }
 
+    /// Quick pick of the page theme.
+    private var themeMenu: some View {
+        Menu {
+            Picker("Tema della pagina", selection: $theme) {
+                ForEach(ReadingTheme.allCases) { theme in
+                    Label(theme.label, systemImage: theme.systemImage).tag(theme)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label("Tema della pagina", systemImage: theme.resolved(for: colorScheme).systemImage)
+        }
+    }
+
     @ToolbarContentBuilder private func toolbar(_ model: ReaderModel) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button("Pagina precedente", systemImage: "chevron.left") { model.previousPage() }
@@ -215,6 +239,7 @@ struct ReaderView: View {
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
             recognitionButton(model.document)
+            themeMenu
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
                 notebook?.flush()

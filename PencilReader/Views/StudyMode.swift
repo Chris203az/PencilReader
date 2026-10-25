@@ -225,6 +225,16 @@ final class StudyCanvasView: PKCanvasView {
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 
+    /// On the night page the marks are the inverse of the day ones: PencilKit's dark style swaps
+    /// their light and dark keeping the hue, and screen blending is multiply on an inverted page.
+    /// The text under a highlighter stays light, a dark blue pen line turns light blue.
+    func setNight(_ night: Bool) {
+        let style: UIUserInterfaceStyle = night ? .dark : .light
+        guard overrideUserInterfaceStyle != style else { return }
+        overrideUserInterfaceStyle = style
+        layer.compositingFilter = night ? "screenBlendMode" : "multiplyBlendMode"
+    }
+
     /// Follows the reader: the page shown, where its image is on screen, its recognized text, the tool.
     func update(page newPage: Int, frame: CGRect, text: PageText?) {
         pageText = text
