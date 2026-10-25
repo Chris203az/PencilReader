@@ -130,7 +130,12 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func startStudying(_ study: StudyModel) -> StudyCanvasView {
-        if let studyCanvas { return studyCanvas }
+        if let studyCanvas, studyCanvas.study === study {
+            studyCanvas.isHidden = false
+            study.canvas = studyCanvas
+            return studyCanvas
+        }
+        studyCanvas?.removeFromSuperview()
         let canvas = StudyCanvasView(study: study)
         canvas.frame = bounds
         addSubview(canvas)
@@ -138,12 +143,14 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
         return canvas
     }
 
+    /// The canvas is hidden, never removed: this runs inside a SwiftUI update, and taking a
+    /// PencilKit canvas out of the window there sent SwiftUI into an endless update (the app froze).
+    /// The marks are saved just after the update, for the same reason.
     func stopStudying() {
-        guard let studyCanvas else { return }
-        studyCanvas.study.flush()
-        if studyCanvas.study.canvas === studyCanvas { studyCanvas.study.canvas = nil }
-        studyCanvas.removeFromSuperview()
-        self.studyCanvas = nil
+        guard let studyCanvas, !studyCanvas.isHidden else { return }
+        studyCanvas.isHidden = true
+        let study = studyCanvas.study
+        DispatchQueue.main.async { study.flush() }
     }
 
     override func layoutSubviews() {
