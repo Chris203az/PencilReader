@@ -20,6 +20,7 @@ struct ReaderView: View {
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
     @State private var showNotes = false
+    @State private var showExport = false
     /// Highlighter, underline and margin notes over the page, in place of the lasso.
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
@@ -74,6 +75,12 @@ struct ReaderView: View {
                 .sheet(isPresented: Binding(get: { study?.showsGuide == true },
                                             set: { study?.showsGuide = $0 })) {
                     StudyGuideView()
+                        .presentationSizing(.form)
+                }
+                .sheet(isPresented: $showExport) {
+                    PDFExportView(document: document, currentPage: model.pageIndex,
+                                  annotatedPages: (notebook?.notedPages ?? []).union(study?.markedPages ?? []),
+                                  paper: notebook?.paper ?? .grid)
                         .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showSearch) {
@@ -231,6 +238,12 @@ struct ReaderView: View {
                 }
                 Toggle(isOn: Bindable(model).allowsFingerDrawing) {
                     Label("Disegna col dito", systemImage: "hand.draw")
+                }
+                Button("Esporta PDF", systemImage: "square.and.arrow.up") {
+                    // So what was just written is in the PDF.
+                    notebook?.flush()
+                    study?.flush()
+                    showExport = true
                 }
             }
         }

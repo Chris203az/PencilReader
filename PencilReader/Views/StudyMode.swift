@@ -102,8 +102,13 @@ final class StudyModel {
     }
 
     func drawing(of page: Int) -> PKDrawing {
-        guard var drawing = AnnotationStore.drawing(of: bookID, page: page) else { return PKDrawing() }
-        // Highlights saved with an older look: the transparency of today, and orange for the old yellow.
+        AnnotationStore.drawing(of: bookID, page: page).map(Self.upgraded) ?? PKDrawing()
+    }
+
+    /// Highlights saved with an older look get the transparency of today, and orange for the old yellow.
+    /// Also used by the PDF export, away from the main actor.
+    nonisolated static func upgraded(_ saved: PKDrawing) -> PKDrawing {
+        var drawing = saved
         for i in drawing.strokes.indices where drawing.strokes[i].ink.inkType == .marker {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
             drawing.strokes[i].ink.color.getRed(&r, green: &g, blue: &b, alpha: &a)
