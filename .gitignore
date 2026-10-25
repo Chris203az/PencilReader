@@ -1,0 +1,9 @@
+.DS_Store
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+.swiftpm/
+ReaderCore/.build/
+# Generato da XcodeGen a partire da project.yml
+PencilReader.xcodeproj/
