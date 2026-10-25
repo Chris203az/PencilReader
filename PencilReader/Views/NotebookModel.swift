@@ -24,6 +24,14 @@ final class NotebookModel {
     var straightensShapes: Bool {
         didSet { UserDefaults.standard.set(straightensShapes, forKey: Self.shapesKey) }
     }
+    /// Each stroke loses its shake when the Pencil lifts, without moving by more than a point.
+    var smoothsStrokes: Bool {
+        didSet { UserDefaults.standard.set(smoothsStrokes, forKey: Self.smoothKey) }
+    }
+    /// How far, in points, smoothing may move a stroke's points: 1 to 4.
+    var smoothingStrength: Double {
+        didSet { UserDefaults.standard.set(smoothingStrength, forKey: Self.strengthKey) }
+    }
 
     /// The clean shapes on the page shown, by the random seed of their stroke, as drawn before any
     /// transform the stroke carries. Shapes no longer on the page stay until it is saved, for Annulla.
@@ -35,6 +43,8 @@ final class NotebookModel {
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     private static let paperKey = "notebookPaper"
     private static let shapesKey = "notebookShapes"
+    private static let smoothKey = "notebookSmoothStrokes"
+    private static let strengthKey = "notebookSmoothingStrength"
     private static let saveDelay = Duration.seconds(1)
 
     init(bookID: UUID, pageIndex: Int) {
@@ -45,6 +55,8 @@ final class NotebookModel {
         isWriting = noted.contains(pageIndex)
         paper = UserDefaults.standard.string(forKey: Self.paperKey).flatMap(PaperStyle.init) ?? .grid
         straightensShapes = UserDefaults.standard.object(forKey: Self.shapesKey) as? Bool ?? true
+        smoothsStrokes = UserDefaults.standard.object(forKey: Self.smoothKey) as? Bool ?? true
+        smoothingStrength = UserDefaults.standard.object(forKey: Self.strengthKey) as? Double ?? 3
     }
 
     /// Turns to another page of the book: saves the current one, then shows the new one's note if it has one.
