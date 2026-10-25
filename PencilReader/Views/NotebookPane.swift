@@ -57,6 +57,14 @@ struct NotebookPane: View {
                     }
                 }
                 Toggle("Raddrizza le forme", isOn: $notebook.straightensShapes)
+                Toggle("Leviga i tratti", isOn: $notebook.smoothsStrokes)
+                Picker("Intensità levigatura", selection: $notebook.smoothingStrength) {
+                    ForEach([1.0, 2.0, 3.0, 4.0], id: \.self) { points in
+                        Text("\(Int(points)) pt").tag(points)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(!notebook.smoothsStrokes)
             }
         }
         .labelStyle(.iconOnly)
@@ -296,6 +304,10 @@ final class NotebookCanvasView: PKCanvasView {
     private var strokesAtStart = 0
     private var liftedWithShape = false
     private var isReplacing = false
+    /// Whether the Pencil is on the page, with any tool.
+    private(set) var isPencilDown = false
+    /// The Pencil has lifted after writing, and its stroke still has to be smoothed.
+    private var awaitsStroke = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -308,7 +320,10 @@ final class NotebookCanvasView: PKCanvasView {
         let pencilInteraction = UIPencilInteraction()
         pencilInteraction.delegate = pencilTaps
         addInteraction(pencilInteraction)
-        hold.onBegin = { [weak self] in self?.strokeBegan() }
+        hold.onBegin = { [weak self] point in
+            guard let self else { return }
+            self.strokeBegan(at: self.drawingPoint(point))
+        }
         hold.onHold = { [weak self] points in
             guard let self else { return false }
             return self.snap(points.map(self.drawingPoint))
@@ -486,7 +501,12 @@ final class NotebookCanvasView: PKCanvasView {
         notebook?.drawingDidChange()
         lasso?.drawingChanged()
         shapeEditor?.drawingChanged()
-        if !isReplacing, liftedWithShape { replaceStrokeIfAdded() }
+        guard !isReplacing else { return }
+        if liftedWithShape {
+            replaceStrokeIfAdded()
+        } else if awaitsStroke {
+            handleAddedStroke()
+        }
     }
 
     // MARK: Shapes
@@ -497,11 +517,13 @@ final class NotebookCanvasView: PKCanvasView {
         return (PKInkingTool.convertColor(tool.color, from: .light, to: traitCollection.userInterfaceStyle), tool.width)
     }
 
-    private func strokeBegan() {
+    private func strokeBegan(at point: CGPoint) {
         toolUsesInTouch = 0
         snapped = nil
         shape = nil
         liftedWithShape = false
+        awaitsStroke = false
+        isPencilDown = true
         strokesAtStart = drawing.strokes.count
         onShapePreview?(nil, .clear, 0)
     }
@@ -524,6 +546,7 @@ final class NotebookCanvasView: PKCanvasView {
     }
 
     private func strokeEnded(lifted: Bool) {
+        isPencilDown = false
         #if DEBUG
         // Once PencilKit has had the lift too. Only real strokes count, not taps.
         if lifted, hold.travelled > 10 {
@@ -534,6 +557,11 @@ final class NotebookCanvasView: PKCanvasView {
             snapped = nil
             shape = nil
             onShapePreview?(nil, .clear, 0)
+            if lifted, ink != nil, !isRulerActive {
+                // Smoothed once the stroke is in, so the stroke keeps its own undo step.
+                awaitsStroke = true
+                handleAddedStroke()
+            }
             return
         }
         liftedWithShape = true
@@ -581,15 +609,20 @@ final class NotebookCanvasView: PKCanvasView {
     /// Same ink and width as the hand-drawn stroke, through the shape's outline.
     private func replaceLastStroke(with shape: InkShape) {
         guard let stroke = drawing.strokes.last, let shapeStroke = self.shapeStroke(shape, like: stroke) else { return }
-        // As in GoodNotes, one Annulla takes the whole shape away: PencilKit's own step for the
-        // hand-drawn stroke is undone first, and the shape is added as a single step instead.
+        replaceAddedStroke(with: shapeStroke)
+    }
+
+    /// Swaps the stroke just written for `newStroke`.
+    private func replaceAddedStroke(with newStroke: PKStroke) {
+        // As in GoodNotes, one Annulla takes the whole stroke away: PencilKit's own step for the
+        // hand-drawn stroke is undone first, and the new one is added as a single step instead.
         if let undoManager, undoManager.canUndo {
             isReplacing = true
             undoManager.undo()
             isReplacing = false
             if drawing.strokes.count == strokesAtStart {
                 var updated = drawing
-                updated.strokes.append(shapeStroke)
+                updated.strokes.append(newStroke)
                 setDrawingUndoably(updated)
                 return
             }
@@ -599,7 +632,7 @@ final class NotebookCanvasView: PKCanvasView {
             isReplacing = false
         }
         var updated = drawing
-        updated.strokes[updated.strokes.count - 1] = shapeStroke
+        updated.strokes[updated.strokes.count - 1] = newStroke
         setDrawingUndoably(updated)
     }
 
@@ -612,6 +645,45 @@ final class NotebookCanvasView: PKCanvasView {
         drawing = newDrawing
         isReplacing = false
     }
+}
+
+// MARK: Smoothing
+
+extension NotebookCanvasView {
+    /// Once PencilKit has added the stroke just written, smooths it.
+    /// Called on the lift and on the drawing change, whichever comes second.
+    fileprivate func handleAddedStroke() {
+        guard awaitsStroke, drawing.strokes.count == strokesAtStart + 1 else { return }
+        awaitsStroke = false
+        let index = strokesAtStart
+        // Outside PencilKit's callback, and never while a new stroke is being written.
+        DispatchQueue.main.async { [weak self] in self?.whenIdle { self?.finishAddedStroke(at: index) } }
+    }
+
+    private func finishAddedStroke(at index: Int) {
+        // A highlighter stroke, or the page changed meanwhile: left as it is.
+        guard index < drawing.strokes.count, drawing.strokes[index].ink.inkType != .marker else { return }
+        // Only the last stroke can be swapped; if the next one is already in, this one stays as drawn.
+        if drawing.strokes.count == index + 1, notebook?.smoothsStrokes == true, !isWriting,
+           let smooth = Self.smoothed(drawing.strokes[index], strength: CGFloat(notebook?.smoothingStrength ?? 3)) {
+            replaceAddedStroke(with: smooth)
+        }
+    }
+
+    /// The stroke with the shake taken out, or nil when it is better left as it is.
+    private static func smoothed(_ stroke: PKStroke, strength: CGFloat) -> PKStroke? {
+        let controls = Array(stroke.path)
+        guard let locations = StrokeSmoother.smoothed(controls.map(\.location), strength: strength) else { return nil }
+        let moved = zip(controls, locations).map { point, location in
+            PKStrokePoint(location: location, timeOffset: point.timeOffset, size: point.size, opacity: point.opacity,
+                          force: point.force, azimuth: point.azimuth, altitude: point.altitude)
+        }
+        return PKStroke(ink: stroke.ink, path: PKStrokePath(controlPoints: moved, creationDate: stroke.path.creationDate),
+                        transform: stroke.transform, mask: stroke.mask, randomSeed: stroke.randomSeed)
+    }
+
+    /// The Pencil is on the page, or PencilKit is still finishing a stroke: the drawing must not change.
+    var isWriting: Bool { isPencilDown || isUsingTool }
 }
 
 /// Receives the canvas' drawing and scroll events.
@@ -667,7 +739,8 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
     /// Smaller movements still count as holding still.
     static let stillness: CGFloat = 4
 
-    var onBegin: (() -> Void)?
+    /// Where the Pencil touched down, in the view's coordinates.
+    var onBegin: ((CGPoint) -> Void)?
     /// Returns whether a shape was found; if not, holding still again later tries again.
     var onHold: (([CGPoint]) -> Bool)?
     var onMove: ((CGPoint) -> Void)?
@@ -702,7 +775,7 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
         lastPoint = points[0]
         travelled = 0
         isHeld = false
-        onBegin?()
+        onBegin?(points[0])
         restartTimer()
     }
 
@@ -759,7 +832,7 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
 
 /// Ruled or squared paper. It stays still while the canvas scrolls over it and
 /// is drawn in the page's own coordinates, so the lines line up with the ink.
-private final class PaperView: UIView {
+final class PaperView: UIView {
     var style: PaperStyle = .grid {
         didSet { setNeedsDisplay() }
     }
@@ -767,7 +840,9 @@ private final class PaperView: UIView {
     private var scrollOffset: CGPoint = .zero
     private var zoom: CGFloat = 1
 
-    private let step: CGFloat = 28
+    /// Distance between the printed lines, in the page's coordinates.
+    static let step: CGFloat = 28
+    private var step: CGFloat { Self.step }
 
     /// Where the canvas is scrolled to and how far it is zoomed, so the lines stay under the ink.
     func show(offset: CGPoint, zoom: CGFloat) {
