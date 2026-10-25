@@ -19,8 +19,9 @@ struct LassoCanvas: UIViewRepresentable {
     /// Incremental translation.
     var onPan: (CGSize) -> Void
     var onDoubleTap: (CGPoint) -> Void
-    /// Set while study mode is on, with the page shown and where its image is.
-    var study: (model: StudyModel, page: Int, frame: CGRect, text: PageText?)?
+    /// The study marks of the book, with the page shown and where its image is. They stay
+    /// on the page when study mode is off; only while it is on does the Pencil mark instead of lassoing.
+    var study: (model: StudyModel, isActive: Bool, page: Int, frame: CGRect, text: PageText?)?
 
     func makeUIView(context: Context) -> LassoCanvasView { LassoCanvasView() }
 
@@ -35,7 +36,8 @@ struct LassoCanvas: UIViewRepresentable {
         view.onPan = onPan
         view.onDoubleTap = onDoubleTap
         if let study {
-            view.startStudying(study.model).update(page: study.page, frame: study.frame, text: study.text)
+            view.showMarks(of: study.model, editable: study.isActive)
+                .update(page: study.page, frame: study.frame, text: study.text)
         } else {
             view.stopStudying()
         }
@@ -129,23 +131,29 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    func startStudying(_ study: StudyModel) -> StudyCanvasView {
+    /// The canvas is created once and never removed while the reader is open: this runs inside
+    /// a SwiftUI update, and taking a PencilKit canvas out of the window there sent SwiftUI into
+    /// an endless update (the app froze). With study mode off it only shows the marks and lets the
+    /// Pencil through to the lasso; the marks are saved just after the update, for the same reason.
+    func showMarks(of study: StudyModel, editable: Bool) -> StudyCanvasView {
+        let canvas: StudyCanvasView
         if let studyCanvas, studyCanvas.study === study {
-            studyCanvas.isHidden = false
-            study.canvas = studyCanvas
-            return studyCanvas
+            canvas = studyCanvas
+        } else {
+            studyCanvas?.isHidden = true
+            canvas = StudyCanvasView(study: study)
+            canvas.frame = bounds
+            addSubview(canvas)
+            studyCanvas = canvas
         }
-        studyCanvas?.removeFromSuperview()
-        let canvas = StudyCanvasView(study: study)
-        canvas.frame = bounds
-        addSubview(canvas)
-        studyCanvas = canvas
+        if canvas.isUserInteractionEnabled != editable {
+            canvas.isUserInteractionEnabled = editable
+            if !editable { DispatchQueue.main.async { study.flush() } }
+        }
+        if editable { study.canvas = canvas }
         return canvas
     }
 
-    /// The canvas is hidden, never removed: this runs inside a SwiftUI update, and taking a
-    /// PencilKit canvas out of the window there sent SwiftUI into an endless update (the app froze).
-    /// The marks are saved just after the update, for the same reason.
     func stopStudying() {
         guard let studyCanvas, !studyCanvas.isHidden else { return }
         studyCanvas.isHidden = true
@@ -161,7 +169,7 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     }
 
     private func draws(_ touch: UITouch) -> Bool {
-        studyCanvas == nil && (touch.type == .pencil || (allowsFinger && touch.type == .direct))
+        studyCanvas?.isUserInteractionEnabled != true && (touch.type == .pencil || (allowsFinger && touch.type == .direct))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

@@ -233,10 +233,16 @@ final class StudyCanvasView: PKCanvasView {
             appliedTool = study.tool
         }
         if newPage != page {
-            study.flush()
+            // This runs inside a SwiftUI update: the model, which views observe, changes just after it.
+            if let page {
+                let marks = drawing, study = study
+                DispatchQueue.main.async {
+                    study.save(marks, page: page)
+                    study.canUndo = false
+                }
+            }
             page = newPage
             history = []
-            study.canUndo = false
             setDrawing(study.drawing(of: newPage))
         }
         place(on: frame)

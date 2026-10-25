@@ -68,7 +68,7 @@ struct PageView: View {
                                         }
                                     }
                                 },
-                                study: isStudying ? study.map { ($0, model.pageIndex, frame, model.pageText) } : nil)
+                                study: study.map { ($0, $0.isActive, model.pageIndex, frame, model.pageText) })
 
                     if let selection = model.selection {
                         TranslationPanel(selection: selection, onClose: model.clearSelection)
