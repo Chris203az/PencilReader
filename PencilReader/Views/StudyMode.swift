@@ -27,7 +27,7 @@ enum StudyColor: String, CaseIterable {
 
     var uiColor: UIColor {
         switch self {
-        case .key: UIColor(red: 1.0, green: 0.86, blue: 0.1, alpha: 1)
+        case .key: UIColor(red: 1.0, green: 0.62, blue: 0.15, alpha: 1)
         case .formula: UIColor(red: 0.35, green: 0.75, blue: 1.0, alpha: 1)
         case .review: UIColor(red: 1.0, green: 0.45, blue: 0.7, alpha: 1)
         }
@@ -48,7 +48,7 @@ enum StudyTool: Equatable {
     static let underlineColor = UIColor(red: 0.85, green: 0.15, blue: 0.1, alpha: 1)
     static let penColor = UIColor(red: 0.1, green: 0.2, blue: 0.6, alpha: 1)
     /// See-through, and multiplied over the page, so the words stay black under the color.
-    static let highlightAlpha: CGFloat = 0.45
+    static let highlightAlpha: CGFloat = 0.58
 
     /// Widths are in page units: the page is `StudyCanvasView.pageWidth` wide.
     var pkTool: PKTool {
@@ -103,12 +103,14 @@ final class StudyModel {
 
     func drawing(of page: Int) -> PKDrawing {
         guard var drawing = AnnotationStore.drawing(of: bookID, page: page) else { return PKDrawing() }
-        // Highlights saved when they were still opaque.
+        // Highlights saved with an older look: the transparency of today, and orange for the old yellow.
         for i in drawing.strokes.indices where drawing.strokes[i].ink.inkType == .marker {
-            let ink = drawing.strokes[i].ink
-            if ink.color.cgColor.alpha > StudyTool.highlightAlpha + 0.01 {
-                drawing.strokes[i].ink = PKInk(.marker, color: ink.color.withAlphaComponent(StudyTool.highlightAlpha))
-            }
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            drawing.strokes[i].ink.color.getRed(&r, green: &g, blue: &b, alpha: &a)
+            let wasYellow = abs(r - 1) < 0.05 && abs(g - 0.86) < 0.05 && abs(b - 0.1) < 0.05
+            guard wasYellow || abs(a - StudyTool.highlightAlpha) > 0.01 else { continue }
+            let color = wasYellow ? StudyColor.key.uiColor : UIColor(red: r, green: g, blue: b, alpha: 1)
+            drawing.strokes[i].ink = PKInk(.marker, color: color.withAlphaComponent(StudyTool.highlightAlpha))
         }
         return drawing
     }
