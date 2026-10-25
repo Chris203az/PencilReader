@@ -47,11 +47,13 @@ enum StudyTool: Equatable {
 
     static let underlineColor = UIColor(red: 0.85, green: 0.15, blue: 0.1, alpha: 1)
     static let penColor = UIColor(red: 0.1, green: 0.2, blue: 0.6, alpha: 1)
+    /// See-through, and multiplied over the page, so the words stay black under the color.
+    static let highlightAlpha: CGFloat = 0.45
 
     /// Widths are in page units: the page is `StudyCanvasView.pageWidth` wide.
     var pkTool: PKTool {
         switch self {
-        case .highlighter(let color): PKInkingTool(.marker, color: color.uiColor, width: 22)
+        case .highlighter(let color): PKInkingTool(.marker, color: color.uiColor.withAlphaComponent(Self.highlightAlpha), width: 22)
         case .underline: PKInkingTool(.pen, color: Self.underlineColor, width: 2.5)
         case .pen: PKInkingTool(.pen, color: Self.penColor, width: 2.2)
         case .eraser: PKEraserTool(.vector)
@@ -100,7 +102,15 @@ final class StudyModel {
     }
 
     func drawing(of page: Int) -> PKDrawing {
-        AnnotationStore.drawing(of: bookID, page: page) ?? PKDrawing()
+        guard var drawing = AnnotationStore.drawing(of: bookID, page: page) else { return PKDrawing() }
+        // Highlights saved when they were still opaque.
+        for i in drawing.strokes.indices where drawing.strokes[i].ink.inkType == .marker {
+            let ink = drawing.strokes[i].ink
+            if ink.color.cgColor.alpha > StudyTool.highlightAlpha + 0.01 {
+                drawing.strokes[i].ink = PKInk(.marker, color: ink.color.withAlphaComponent(StudyTool.highlightAlpha))
+            }
+        }
+        return drawing
     }
 
     func save(_ drawing: PKDrawing, page: Int) {
@@ -169,21 +179,48 @@ final class StudyCanvasView: PKCanvasView {
         isOpaque = false
         // The page is a scan on white: the ink keeps its colors in dark mode.
         overrideUserInterfaceStyle = .light
+        // Ink multiplies with the page like a real highlighter: the text under it stays black.
+        layer.compositingFilter = "multiplyBlendMode"
         contentInsetAdjustmentBehavior = .never
         minimumZoomScale = 0.05
         maximumZoomScale = 20
         isScrollEnabled = false
-        panGestureRecognizer.isEnabled = false
-        pinchGestureRecognizer?.isEnabled = false
+        // The scroll view's own pan and pinch would take the fingers from the reader's zoom.
+        // Disabling them is not enough: the scroll view turns its pinch back on when the zoom changes.
+        let pencil = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        panGestureRecognizer.allowedTouchTypes = pencil
+        pinchGestureRecognizer?.allowedTouchTypes = pencil
         showsVerticalScrollIndicator = false
         showsHorizontalScrollIndicator = false
         events.canvas = self
         delegate = events
         study.canvas = self
+        leaveFingersToReader()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        leaveFingersToReader()
+    }
+
+    /// PencilKit's own gestures, here and in its inner views, only take the Pencil:
+    /// fingers go to the reader view under the canvas, which pinches, swipes and taps.
+    private func leaveFingersToReader() {
+        let pencil = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        var views: [UIView] = [self]
+        while let view = views.popLast() {
+            view.gestureRecognizers?.forEach { $0.allowedTouchTypes = pencil }
+            views.append(contentsOf: view.subviews)
+        }
     }
 
     required init?(coder: NSCoder) {
         fatalError("StudyCanvasView si crea solo da codice")
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === panGestureRecognizer || gestureRecognizer === pinchGestureRecognizer { return false }
+        return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 
     /// Follows the reader: the page shown, where its image is on screen, its recognized text, the tool.
@@ -438,7 +475,7 @@ struct StudyGuideView: View {
                 }
                 Section("Legenda") {
                     ForEach(StudyColor.allCases, id: \.self) { color in
-                        legendRow(color.color, opacity: 0.5, title: color.label, detail: detail(of: color))
+                        legendRow(color.color, opacity: StudyTool.highlightAlpha, title: color.label, detail: detail(of: color))
                     }
                     legendRow(Color(uiColor: StudyTool.underlineColor), opacity: 1, title: "Sottolineato",
                               detail: "Termine inglese da imparare", thin: true)

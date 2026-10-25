@@ -119,9 +119,11 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     }
 
     /// Pinch and drag together, so the page follows the fingers while zooming.
+    /// In study mode the canvas' own gestures never hold them back.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-        (gestureRecognizer is UIPinchGestureRecognizer && other == pan)
+        if let studyCanvas, let view = other.view, view.isDescendant(of: studyCanvas) { return true }
+        return (gestureRecognizer is UIPinchGestureRecognizer && other == pan)
             || (gestureRecognizer == pan && other is UIPinchGestureRecognizer)
     }
 
