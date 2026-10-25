@@ -28,6 +28,34 @@ final class NotebookTools {
     func setColor(_ color: InkColor) { state.setColor(color) }
     func setWidth(_ width: Double) { state.setWidth(width) }
 
+    /// Whole strokes or pixels; takes the eraser.
+    func setEraserPixel(_ isPixel: Bool) {
+        state.eraserIsPixel = isPixel
+        state.select(.eraser)
+    }
+
+    func setEraserWidth(_ width: Double) { state.setEraserWidth(width) }
+
+    /// The kind of eraser chosen, as PencilKit names it.
+    var eraserType: PKEraserTool.EraserType { state.eraserIsPixel ? .bitmap : .vector }
+
+    /// The sizes PencilKit allows for the kind of eraser chosen.
+    var eraserRange: ClosedRange<Double> {
+        Double(eraserType.minWidth)...Double(eraserType.maxWidth)
+    }
+
+    /// The eraser's size: the one chosen for this kind, else PencilKit's default, within its limits.
+    var eraserWidth: Double {
+        let range = eraserRange
+        return min(max(state.eraserWidth ?? Double(eraserType.defaultWidth), range.lowerBound), range.upperBound)
+    }
+
+    /// Small, medium and large, spread over the allowed sizes.
+    var eraserPresets: [Double] {
+        let range = eraserRange
+        return [0.08, 0.3, 0.7].map { (range.lowerBound + $0 * (range.upperBound - range.lowerBound)).rounded() }
+    }
+
     /// Changes a swatch, and inks with it.
     func setPaletteColor(_ color: InkColor, at index: Int) {
         guard state.palette.indices.contains(index) else { return }
@@ -54,7 +82,7 @@ final class NotebookTools {
             let ink = state.ink(for: tool) ?? InkSetting(color: .black, width: 3)
             return PKInkingTool(tool.inkType, color: ink.color.uiColor, width: ink.width)
         case .eraser:
-            return PKEraserTool(state.eraserIsPixel ? .bitmap : .vector)
+            return PKEraserTool(eraserType, width: eraserWidth)
         case .lasso:
             // The notebook draws its own lasso (LassoEditor) and turns PencilKit's drawing off
             // meanwhile; PencilKit's lasso, which can only move strokes, is never used.
@@ -137,7 +165,7 @@ struct NotebookToolbar: View {
         case .pen: toolButton(.pen)
         case .pencil: toolButton(.pencil)
         case .marker: toolButton(.marker)
-        case .eraser: toolButton(.eraser, symbol: tools.state.eraserIsPixel ? "eraser.line.dashed" : "eraser")
+        case .eraser: EraserButton(tools: tools)
         case .lasso: toolButton(.lasso)
         case .ruler:
             barButton("Righello", symbol: "ruler", isActive: tools.isRulerActive) { tools.isRulerActive.toggle() }
@@ -172,7 +200,6 @@ struct NotebookToolbar: View {
         }
     }
 
-    /// Tapping the eraser while it is in hand switches between whole strokes and pixels.
     private func toolButton(_ tool: DrawingTool, symbol: String? = nil) -> some View {
         barButton(tool.label, symbol: symbol ?? tool.symbol, isActive: tools.state.current == tool) {
             tools.select(tool)
@@ -187,6 +214,91 @@ struct NotebookToolbar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+}
+
+/// The eraser: a tap takes it, a tap while it is in hand opens its kind and size.
+/// The small dot on the icon grows with the size.
+private struct EraserButton: View {
+    let tools: NotebookTools
+    @State private var showsSettings = false
+
+    private var isActive: Bool { tools.state.current == .eraser }
+
+    /// From 0 for the smallest size to 1 for the largest.
+    private var share: Double {
+        let range = tools.eraserRange
+        guard range.upperBound > range.lowerBound else { return 0 }
+        return (tools.eraserWidth - range.lowerBound) / (range.upperBound - range.lowerBound)
+    }
+
+    var body: some View {
+        Button {
+            if isActive { showsSettings = true } else { tools.select(.eraser) }
+        } label: {
+            BarIcon(symbol: tools.state.eraserIsPixel ? "eraser.line.dashed" : "eraser", isActive: isActive)
+                .overlay(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(isActive ? Color.accentColor : Color.primary)
+                        .frame(width: 4 + 6 * share.squareRoot(), height: 4 + 6 * share.squareRoot())
+                        .padding(3)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Gomma")
+        .accessibilityHint(isActive ? "Tocca per scegliere tipo e grandezza" : "")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .popover(isPresented: $showsSettings) {
+            EraserSettings(tools: tools)
+        }
+    }
+}
+
+/// Whole strokes or pixels, three quick sizes, a slider for any other, and the size drawn as a circle.
+private struct EraserSettings: View {
+    let tools: NotebookTools
+    /// The largest circle the preview draws; bigger sizes are drawn at this size.
+    private let previewLimit: CGFloat = 96
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Picker("Tipo di gomma", selection: Binding(get: { tools.state.eraserIsPixel },
+                                                     set: { tools.setEraserPixel($0) })) {
+                Text("Tratto intero").tag(false)
+                Text("Pixel").tag(true)
+            }
+            .pickerStyle(.segmented)
+            HStack {
+                Spacer()
+                Circle()
+                    .strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .background(Circle().fill(Color.secondary.opacity(0.12)))
+                    .frame(width: min(CGFloat(tools.eraserWidth), previewLimit),
+                           height: min(CGFloat(tools.eraserWidth), previewLimit))
+                Spacer()
+            }
+            .frame(height: previewLimit)
+            HStack(spacing: 8) {
+                ForEach(Array(zip(["Piccola", "Media", "Grande"], tools.eraserPresets)), id: \.0) { name, width in
+                    Button {
+                        tools.setEraserWidth(width)
+                    } label: {
+                        Text(name)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(abs(tools.eraserWidth - width) < 0.5 ? .accentColor : .secondary)
+                }
+            }
+            Slider(value: Binding(get: { tools.eraserWidth }, set: { tools.setEraserWidth($0.rounded()) }),
+                   in: tools.eraserRange)
+            Text("Grandezza \(Int(tools.eraserWidth)) pt")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding()
+        .frame(width: 320)
     }
 }
 

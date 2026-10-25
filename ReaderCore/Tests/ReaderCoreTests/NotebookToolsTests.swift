@@ -11,12 +11,38 @@ struct NotebookToolStateTests {
         #expect(state.palette.count == 5)
     }
 
-    @Test func choosingTheEraserAgainSwitchesItsKind() {
+    @Test func eachKindOfEraserKeepsItsSize() {
         var state = NotebookToolState()
+        #expect(state.eraserWidth == nil)
+        state.setEraserWidth(30)
+        #expect(state.current == .eraser && state.strokeEraserWidth == 30)
+        state.eraserIsPixel = true
+        #expect(state.eraserWidth == nil)
+        state.setEraserWidth(8)
+        #expect(state.eraserWidth == 8)
+        state.eraserIsPixel = false
+        #expect(state.eraserWidth == 30)
+        // Choosing the eraser again changes nothing: the bar opens its settings instead.
         state.select(.eraser)
         #expect(state.current == .eraser && !state.eraserIsPixel)
-        state.select(.eraser)
-        #expect(state.current == .eraser && state.eraserIsPixel)
+    }
+
+    @Test func thePencilDoubleTapTakesTheEraserAtItsSize() {
+        var state = NotebookToolState()
+        state.setEraserWidth(25)
+        state.select(.pen)
+        state.pencilDoubleTap(switchesToEraser: true)
+        #expect(state.current == .eraser && state.eraserWidth == 25)
+    }
+
+    @Test func toolsSavedBeforeEraserSizesStillLoad() throws {
+        let old = #"{"current":"marker","previous":"pen","lastInking":"marker","eraserIsPixel":true,"#
+            + #""palette":[{"red":0,"green":0,"blue":0,"alpha":1}],"#
+            + #""pen":{"color":{"red":0,"green":0,"blue":0,"alpha":1},"width":3},"#
+            + #""pencil":{"color":{"red":0,"green":0,"blue":0,"alpha":1},"width":4},"#
+            + #""marker":{"color":{"red":1,"green":1,"blue":0,"alpha":1},"width":20}}"#
+        let state = try JSONDecoder().decode(NotebookToolState.self, from: Data(old.utf8))
+        #expect(state.current == .marker && state.eraserIsPixel && state.eraserWidth == nil)
     }
 
     @Test func colorAndWidthBelongToTheLastInkingTool() {
