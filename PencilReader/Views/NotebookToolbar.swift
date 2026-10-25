@@ -28,6 +28,36 @@ final class NotebookTools {
     func setColor(_ color: InkColor) { state.setColor(color) }
     func setWidth(_ width: Double) { state.setWidth(width) }
 
+    /// Whole strokes or pixels; takes the eraser.
+    func setEraserPixel(_ isPixel: Bool) {
+        state.eraserIsPixel = isPixel
+        state.select(.eraser)
+    }
+
+    func setEraserWidth(_ width: Double) { state.setEraserWidth(width) }
+
+    /// The kind of eraser chosen, as PencilKit names it. The pixel eraser that takes a size is
+    /// `.fixedWidthBitmap`: plain `.bitmap` has no size range at all, so its slider could not move.
+    var eraserType: PKEraserTool.EraserType { state.eraserIsPixel ? .fixedWidthBitmap : .vector }
+
+    /// The sizes PencilKit allows for the kind of eraser chosen.
+    var eraserRange: ClosedRange<Double> {
+        let range = eraserType.validWidthRange
+        return Double(range.lowerBound)...Double(range.upperBound)
+    }
+
+    /// The eraser's size: the one chosen for this kind, else PencilKit's default, within its limits.
+    var eraserWidth: Double {
+        let range = eraserRange
+        return min(max(state.eraserWidth ?? Double(eraserType.defaultWidth), range.lowerBound), range.upperBound)
+    }
+
+    /// Small, medium and large, spread over the allowed sizes.
+    var eraserPresets: [Double] {
+        let range = eraserRange
+        return [0.08, 0.3, 0.7].map { range.lowerBound + $0 * (range.upperBound - range.lowerBound) }
+    }
+
     /// Changes a swatch, and inks with it.
     func setPaletteColor(_ color: InkColor, at index: Int) {
         guard state.palette.indices.contains(index) else { return }
@@ -54,7 +84,7 @@ final class NotebookTools {
             let ink = state.ink(for: tool) ?? InkSetting(color: .black, width: 3)
             return PKInkingTool(tool.inkType, color: ink.color.uiColor, width: ink.width)
         case .eraser:
-            return PKEraserTool(state.eraserIsPixel ? .bitmap : .vector)
+            return PKEraserTool(eraserType, width: eraserWidth)
         case .lasso:
             // The notebook draws its own lasso (LassoEditor) and turns PencilKit's drawing off
             // meanwhile; PencilKit's lasso, which can only move strokes, is never used.
@@ -137,7 +167,7 @@ struct NotebookToolbar: View {
         case .pen: toolButton(.pen)
         case .pencil: toolButton(.pencil)
         case .marker: toolButton(.marker)
-        case .eraser: toolButton(.eraser, symbol: tools.state.eraserIsPixel ? "eraser.line.dashed" : "eraser")
+        case .eraser: EraserButton(tools: tools)
         case .lasso: toolButton(.lasso)
         case .ruler:
             barButton("Righello", symbol: "ruler", isActive: tools.isRulerActive) { tools.isRulerActive.toggle() }
@@ -172,7 +202,6 @@ struct NotebookToolbar: View {
         }
     }
 
-    /// Tapping the eraser while it is in hand switches between whole strokes and pixels.
     private func toolButton(_ tool: DrawingTool, symbol: String? = nil) -> some View {
         barButton(tool.label, symbol: symbol ?? tool.symbol, isActive: tools.state.current == tool) {
             tools.select(tool)
@@ -187,6 +216,91 @@ struct NotebookToolbar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+}
+
+/// The eraser: a tap takes it, a tap while it is in hand opens its kind and size.
+/// The small dot on the icon grows with the size.
+private struct EraserButton: View {
+    let tools: NotebookTools
+    @State private var showsSettings = false
+
+    private var isActive: Bool { tools.state.current == .eraser }
+
+    /// From 0 for the smallest size to 1 for the largest.
+    private var share: Double {
+        let range = tools.eraserRange
+        guard range.upperBound > range.lowerBound else { return 0 }
+        return (tools.eraserWidth - range.lowerBound) / (range.upperBound - range.lowerBound)
+    }
+
+    var body: some View {
+        Button {
+            if isActive { showsSettings = true } else { tools.select(.eraser) }
+        } label: {
+            BarIcon(symbol: tools.state.eraserIsPixel ? "eraser.line.dashed" : "eraser", isActive: isActive)
+                .overlay(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(isActive ? Color.accentColor : Color.primary)
+                        .frame(width: 4 + 6 * share.squareRoot(), height: 4 + 6 * share.squareRoot())
+                        .padding(3)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Gomma")
+        .accessibilityHint(isActive ? "Tocca per scegliere tipo e grandezza" : "")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .popover(isPresented: $showsSettings) {
+            EraserSettings(tools: tools)
+        }
+    }
+}
+
+/// Whole strokes or pixels, three quick sizes, a slider for any other, and the size drawn as a circle.
+private struct EraserSettings: View {
+    let tools: NotebookTools
+    /// The largest circle the preview draws; bigger sizes are drawn at this size.
+    private let previewLimit: CGFloat = 96
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Picker("Tipo di gomma", selection: Binding(get: { tools.state.eraserIsPixel },
+                                                     set: { tools.setEraserPixel($0) })) {
+                Text("Tratto intero").tag(false)
+                Text("Pixel").tag(true)
+            }
+            .pickerStyle(.segmented)
+            HStack {
+                Spacer()
+                Circle()
+                    .strokeBorder(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .background(Circle().fill(Color.secondary.opacity(0.12)))
+                    .frame(width: min(CGFloat(tools.eraserWidth), previewLimit),
+                           height: min(CGFloat(tools.eraserWidth), previewLimit))
+                Spacer()
+            }
+            .frame(height: previewLimit)
+            HStack(spacing: 8) {
+                ForEach(Array(zip(["Piccola", "Media", "Grande"], tools.eraserPresets)), id: \.0) { name, width in
+                    Button {
+                        tools.setEraserWidth(width)
+                    } label: {
+                        Text(name)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(abs(tools.eraserWidth - width) < 0.05 ? .accentColor : .secondary)
+                }
+            }
+            Slider(value: Binding(get: { tools.eraserWidth }, set: { tools.setEraserWidth($0) }),
+                   in: tools.eraserRange)
+            Text("Grandezza " + tools.eraserWidth.formatted(.number.precision(.fractionLength(1))) + " pt")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .padding()
+        .frame(width: 320)
     }
 }
 
@@ -239,29 +353,36 @@ private struct ColorSwatch: View {
     }
 }
 
-/// Three preset widths for the pen, pencil or marker in use, and a slider for any other.
+/// Three preset widths and a slider for any other: of the pen, pencil or marker in use, or,
+/// with the eraser in hand, small, medium and large of that kind of eraser, drawn as open circles.
 private struct WidthButtons: View {
     let tools: NotebookTools
     @State private var showsSlider = false
 
     private var tool: DrawingTool { tools.state.lastInking }
+    private var isEraser: Bool { tools.state.current == .eraser }
+    private var presets: [Double] { isEraser ? tools.eraserPresets : tool.widthPresets }
+    private var width: Double? { isEraser ? tools.eraserWidth : tools.currentInk?.width }
+    private var range: ClosedRange<Double> { isEraser ? tools.eraserRange : tool.widthRange }
+
+    private func setWidth(_ value: Double) {
+        if isEraser { tools.setEraserWidth(value) } else { tools.setWidth(value) }
+    }
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Array(tool.widthPresets.enumerated()), id: \.offset) { step, width in
+            ForEach(Array(presets.enumerated()), id: \.offset) { step, preset in
                 Button {
-                    tools.setWidth(width)
+                    setWidth(preset)
                 } label: {
-                    Circle()
-                        .fill(Color.primary)
-                        .frame(width: 5 + CGFloat(step) * 5, height: 5 + CGFloat(step) * 5)
+                    dot(step: step)
                         .frame(width: 30, height: 34)
-                        .background(tools.currentInk?.width == width ? Color.accentColor.opacity(0.18) : .clear,
+                        .background(width.map { abs($0 - preset) < 0.05 } == true ? Color.accentColor.opacity(0.18) : .clear,
                                     in: RoundedRectangle(cornerRadius: 8))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Spessore \(step + 1)")
+                .accessibilityLabel(isEraser ? ["Gomma piccola", "Gomma media", "Gomma grande"][step] : "Spessore \(step + 1)")
             }
             Button {
                 showsSlider = true
@@ -269,15 +390,13 @@ private struct WidthButtons: View {
                 BarIcon(symbol: "slider.horizontal.below.rectangle", isActive: false)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Altro spessore")
+            .accessibilityLabel(isEraser ? "Altra grandezza della gomma" : "Altro spessore")
             .popover(isPresented: $showsSlider) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Spessore \(tool.label.lowercased())")
+                    Text(isEraser ? "Grandezza gomma" : "Spessore \(tool.label.lowercased())")
                         .font(.headline)
-                    Slider(value: Binding(get: { tools.currentInk?.width ?? tool.widthRange.lowerBound },
-                                          set: { tools.setWidth($0) }),
-                           in: tool.widthRange)
-                    Text((tools.currentInk?.width ?? 0).formatted(.number.precision(.fractionLength(1))) + " pt")
+                    Slider(value: Binding(get: { width ?? range.lowerBound }, set: { setWidth($0) }), in: range)
+                    Text((width ?? 0).formatted(.number.precision(.fractionLength(1))) + " pt")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -285,6 +404,15 @@ private struct WidthButtons: View {
                 .padding()
                 .frame(width: 300)
             }
+        }
+    }
+
+    @ViewBuilder private func dot(step: Int) -> some View {
+        let size = 5 + CGFloat(step) * 5
+        if isEraser {
+            Circle().strokeBorder(Color.primary, lineWidth: 1.5).frame(width: size + 2, height: size + 2)
+        } else {
+            Circle().fill(Color.primary).frame(width: size, height: size)
         }
     }
 }

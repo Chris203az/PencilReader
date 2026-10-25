@@ -77,6 +77,10 @@ public struct NotebookToolState: Codable, Equatable, Sendable {
     public private(set) var lastInking: DrawingTool = .pen
     /// The eraser removes pixels instead of whole strokes.
     public var eraserIsPixel = false
+    /// How wide each kind of eraser is; nil until chosen, for the system's own default.
+    /// Optional so that tools saved before the eraser had a size still load.
+    public var strokeEraserWidth: Double?
+    public var pixelEraserWidth: Double?
     public var palette: [InkColor] = InkColor.palette
     public var pen = InkSetting(color: .black, width: 3)
     public var pencil = InkSetting(color: .black, width: 4)
@@ -93,12 +97,19 @@ public struct NotebookToolState: Codable, Equatable, Sendable {
         }
     }
 
-    /// Choosing the eraser again switches it between whole strokes and pixels.
+    /// The size of the eraser in use, whole strokes or pixels; nil for the system's default.
+    public var eraserWidth: Double? {
+        eraserIsPixel ? pixelEraserWidth : strokeEraserWidth
+    }
+
+    /// Sets the size of the kind of eraser in use, and takes the eraser.
+    public mutating func setEraserWidth(_ width: Double) {
+        if eraserIsPixel { pixelEraserWidth = width } else { strokeEraserWidth = width }
+        select(.eraser)
+    }
+
     public mutating func select(_ tool: DrawingTool) {
-        if tool == current {
-            if tool == .eraser { eraserIsPixel.toggle() }
-            return
-        }
+        guard tool != current else { return }
         previous = current
         current = tool
         if tool.isInking { lastInking = tool }
