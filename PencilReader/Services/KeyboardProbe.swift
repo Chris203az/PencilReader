@@ -39,6 +39,22 @@ enum KeyboardProbe {
     }
 }
 
+/// Diagnostics of the notebook's Pencil strokes, in Documents/diagnostica-quaderno.txt. Debug builds only.
+enum NotebookDiagnostics {
+    static func log(_ message: String) {
+        let line = "\(Date().formatted(date: .omitted, time: .standard)) \(message)\n"
+        guard let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("diagnostica-quaderno.txt") else { return }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? Data(line.utf8).write(to: url)
+        }
+    }
+}
+
 private extension UIResponder {
     private static weak var found: UIResponder?
 

@@ -3,10 +3,11 @@ import ReaderCore
 import UIKit
 
 /// Reshaping the clean shapes on the page, as in GoodNotes. A finger tap on a shape's line shows its
-/// grips: a line's ends, a rectangle's corners and sides, a circle's or an ellipse's axes, a polygon's
+/// grips, and until it is let go the Pencil drags them instead of writing. The grips: a line's ends, a rectangle's corners and sides, a circle's or an ellipse's axes, a polygon's
 /// corners, an arc's ends and middle, a curve's points. Dragging a grip changes the shape and dragging
 /// its line moves it; the line keeps its width, since the stroke is drawn again from the shape.
-/// Each change is one step of Annulla; a tap elsewhere, writing or Annulla lets the shape go.
+/// Each change is one step of Annulla; a touch elsewhere, with a finger or the Pencil, or Annulla lets
+/// the shape go, and the Pencil writes again from its next stroke.
 @MainActor
 final class ShapeEditor: NSObject {
     private unowned let canvas: NotebookCanvasView
@@ -31,7 +32,9 @@ final class ShapeEditor: NSObject {
         case move(start: CGPoint)
     }
 
-    private var editing: Editing?
+    private var editing: Editing? {
+        didSet { canvas.isEditingShape = editing != nil }
+    }
     private var drag: Drag?
     private var pending: Drag?
     private var dragged: InkShape?
@@ -69,12 +72,13 @@ final class ShapeEditor: NSObject {
         gripLayer.lineWidth = 2
         host.layer.addSublayer(gripLayer)
 
-        let fingers = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        let touches = [UITouch.TouchType.direct, .pencil].map { NSNumber(value: $0.rawValue) }
         tap.addTarget(self, action: #selector(tapped(_:)))
-        tap.allowedTouchTypes = fingers
+        tap.allowedTouchTypes = touches
         tap.require(toFail: canvas.doubleTap)
+        tap.delegate = self
         pan.addTarget(self, action: #selector(panned(_:)))
-        pan.allowedTouchTypes = fingers
+        pan.allowedTouchTypes = touches
         pan.maximumNumberOfTouches = 1
         pan.delegate = self
         canvas.addGestureRecognizer(tap)
@@ -246,9 +250,17 @@ final class ShapeEditor: NSObject {
 
 extension ShapeEditor: UIGestureRecognizerDelegate {
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if gestureRecognizer === tap {
+            // A finger picks a shape; the Pencil writes, unless a shape is showing its grips.
+            return touch.type == .direct || editing != nil
+        }
         guard gestureRecognizer === pan else { return true }
         if pan.state == .possible, drag == nil { pending = nil }
         pending = grab(at: canvas.drawingPoint(touch.location(in: canvas)))
+        if pending == nil, touch.type == .pencil, editing != nil {
+            // The Pencil away from the shape lets it go, leaving no mark; its next stroke writes.
+            DispatchQueue.main.async { [weak self] in self?.deselect() }
+        }
         return pending != nil
     }
 }

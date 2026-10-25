@@ -263,12 +263,21 @@ final class NotebookCanvasView: PKCanvasView {
     var usesLasso = false {
         didSet {
             guard usesLasso != oldValue else { return }
-            drawingGestureRecognizer.isEnabled = !usesLasso
-            hold.isEnabled = !usesLasso
+            updateWriting()
             lasso?.isActive = usesLasso
             shapeEditor?.isEnabled = !usesLasso
         }
     }
+    /// While a shape shows its grips the Pencil drags them instead of writing.
+    var isEditingShape = false {
+        didSet { if isEditingShape != oldValue { updateWriting() } }
+    }
+    /// True from the moment the Pencil touches down with a tool until it lifts.
+    private(set) var isUsingTool = false
+    /// Changes to the drawing that wait for the stroke in progress to end.
+    private var waitingForIdle: [() -> Void] = []
+    /// Strokes PencilKit began during the current Pencil touch (diagnostics).
+    private var toolUsesInTouch = 0
     /// Never the canvas itself: a canvas that is its own delegate also answers
     /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
     private let events = CanvasEvents()
@@ -323,6 +332,13 @@ final class NotebookCanvasView: PKCanvasView {
             addGestureRecognizer(swipe)
             swipes.append(swipe)
         }
+        // Fingers scroll, zoom and swipe; only the Pencil writes, and nothing else takes its touches.
+        let fingers = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        panGestureRecognizer.allowedTouchTypes = fingers
+        pinchGestureRecognizer?.allowedTouchTypes = fingers
+        #if DEBUG
+        drawingGestureRecognizer.addTarget(self, action: #selector(drawingGestureChanged(_:)))
+        #endif
         doubleTap.addTarget(self, action: #selector(doubleTapped))
         doubleTap.numberOfTapsRequired = 2
         doubleTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
@@ -363,6 +379,77 @@ final class NotebookCanvasView: PKCanvasView {
         return super.gestureRecognizerShouldBegin(gestureRecognizer)
     }
 
+    /// PencilKit writes only when neither the lasso nor a shape's grips have the Pencil.
+    private func updateWriting() {
+        let writes = !usesLasso && !isEditingShape
+        drawingGestureRecognizer.isEnabled = writes
+        hold.isEnabled = writes
+    }
+
+    /// Runs `work` now, or as soon as the stroke in progress ends: giving the canvas a new drawing
+    /// while the Pencil is writing cuts the stroke, or drops it. Every change made by code goes through here.
+    func whenIdle(_ work: @escaping () -> Void) {
+        if isUsingTool { waitingForIdle.append(work) } else { work() }
+    }
+
+    fileprivate func toolUseBegan() {
+        isUsingTool = true
+        toolUsesInTouch += 1
+    }
+
+    fileprivate func toolUseEnded() {
+        isUsingTool = false
+        // After PencilKit has finished with the stroke.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isUsingTool else { return }
+            let work = self.waitingForIdle
+            self.waitingForIdle = []
+            work.forEach { $0() }
+        }
+    }
+
+    #if DEBUG
+    override var drawing: PKDrawing {
+        get { super.drawing }
+        set {
+            if isUsingTool {
+                NotebookDiagnostics.log("disegno sostituito durante un tratto, da:\n"
+                    + Thread.callStackSymbols.dropFirst().prefix(8).joined(separator: "\n"))
+            }
+            super.drawing = newValue
+        }
+    }
+
+    /// Notes which gestures were active when PencilKit's stroke was cancelled.
+    @objc private func drawingGestureChanged(_ gesture: UIGestureRecognizer) {
+        guard gesture.state == .cancelled else { return }
+        NotebookDiagnostics.log("tratto annullato; gesti attivi: " + activeGestures())
+    }
+
+    /// Each Pencil touch should make exactly one stroke: none is a stroke lost, more is a stroke cut.
+    fileprivate func checkStrokes(afterTouch drawn: Bool) {
+        guard drawingGestureRecognizer.isEnabled else { return }
+        let uses = toolUsesInTouch
+        if uses != 1 {
+            NotebookDiagnostics.log(uses == 0 ? "tocco della Pencil senza tratto; gesti attivi: \(activeGestures())"
+                                              : "un tocco della Pencil spezzato in \(uses) tratti")
+        }
+    }
+
+    private func activeGestures() -> String {
+        var active: [String] = []
+        var view: UIView? = self
+        while let current = view {
+            for other in current.gestureRecognizers ?? [] where other !== drawingGestureRecognizer
+                && [.began, .changed, .ended].contains(other.state) {
+                active.append("\(type(of: other)) su \(type(of: current))")
+            }
+            view = current.superview
+        }
+        return active.isEmpty ? "nessuno" : active.joined(separator: ", ")
+    }
+    #endif
+
     /// From the canvas' content coordinates, which grow with the zoom, to the drawing's.
     func drawingPoint(_ point: CGPoint) -> CGPoint {
         CGPoint(x: point.x / zoomScale, y: point.y / zoomScale)
@@ -395,7 +482,7 @@ final class NotebookCanvasView: PKCanvasView {
 
     fileprivate func drawingDidChange() {
         // Grows after the current callback, not while PencilKit is still handling the stroke.
-        DispatchQueue.main.async { [weak self] in self?.fitContent() }
+        DispatchQueue.main.async { [weak self] in self?.whenIdle { self?.fitContent() } }
         notebook?.drawingDidChange()
         lasso?.drawingChanged()
         shapeEditor?.drawingChanged()
@@ -411,6 +498,7 @@ final class NotebookCanvasView: PKCanvasView {
     }
 
     private func strokeBegan() {
+        toolUsesInTouch = 0
         snapped = nil
         shape = nil
         liftedWithShape = false
@@ -436,6 +524,12 @@ final class NotebookCanvasView: PKCanvasView {
     }
 
     private func strokeEnded(lifted: Bool) {
+        #if DEBUG
+        // Once PencilKit has had the lift too. Only real strokes count, not taps.
+        if lifted, hold.travelled > 10 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.checkStrokes(afterTouch: lifted) }
+        }
+        #endif
         guard lifted, shape != nil else {
             snapped = nil
             shape = nil
@@ -453,10 +547,16 @@ final class NotebookCanvasView: PKCanvasView {
         liftedWithShape = false
         snapped = nil
         self.shape = nil
-        // Outside PencilKit's callback, which must not see the drawing change under it.
+        let count = drawing.strokes.count
+        // Outside PencilKit's callback, which must not see the drawing change under it,
+        // and never while the next stroke is being written.
         DispatchQueue.main.async { [weak self] in
-            self?.replaceLastStroke(with: shape)
-            self?.onShapePreview?(nil, .clear, 0)
+            self?.whenIdle {
+                guard let self else { return }
+                self.onShapePreview?(nil, .clear, 0)
+                // A stroke started meanwhile would be the last one now: the shape is then left as drawn.
+                if self.drawing.strokes.count == count { self.replaceLastStroke(with: shape) }
+            }
         }
     }
 
@@ -522,6 +622,14 @@ private final class CanvasEvents: NSObject, PKCanvasViewDelegate {
         canvas?.drawingDidChange()
     }
 
+    func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
+        canvas?.toolUseBegan()
+    }
+
+    func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+        canvas?.toolUseEnded()
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         canvas?.scrolled()
     }
@@ -568,6 +676,9 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
 
     private weak var trackedTouch: UITouch?
     private var points: [CGPoint] = []
+    private var lastPoint: CGPoint = .zero
+    /// How far the tip has gone in this touch; read when it ends.
+    private(set) var travelled: CGFloat = 0
     private var stillAt: CGPoint = .zero
     private var timer: Timer?
     private var isHeld = false
@@ -588,6 +699,8 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
         trackedTouch = touch
         points = [touch.location(in: view)]
         stillAt = points[0]
+        lastPoint = points[0]
+        travelled = 0
         isHeld = false
         onBegin?()
         restartTimer()
@@ -597,6 +710,8 @@ private final class PencilHoldRecognizer: UIGestureRecognizer {
         guard let touch = trackedTouch, touches.contains(touch) else { return }
         for sample in event.coalescedTouches(for: touch) ?? [touch] {
             let point = sample.location(in: view)
+            travelled += hypot(point.x - lastPoint.x, point.y - lastPoint.y)
+            lastPoint = point
             if isHeld {
                 onMove?(point)
             } else {
