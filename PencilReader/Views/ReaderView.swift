@@ -32,6 +32,8 @@ struct ReaderView: View {
                             .frame(width: pageWidth(in: geo.size.width))
                         if showNotebook, let notebook {
                             NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
+                                // Drawn over the notebook while it is dragged across it.
+                                .zIndex(1)
                             NotebookPane(notebook: notebook)
                                 .frame(maxWidth: .infinity)
                         }
@@ -171,7 +173,11 @@ struct ReaderView: View {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             recognitionButton(model.document)
-            Button("Note del libro", systemImage: "note.text") { showNotes = true }
+            Button("Note del libro", systemImage: "note.text") {
+                // So the page being written on shows up to date in the list.
+                notebook?.flush()
+                showNotes = true
+            }
             Button("Cerca nel libro", systemImage: "magnifyingglass") {
                 if search == nil { search = BookSearch(document: document, library: library) }
                 showSearch = true

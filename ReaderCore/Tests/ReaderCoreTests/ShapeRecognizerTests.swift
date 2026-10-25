@@ -3,131 +3,210 @@ import Foundation
 import Testing
 @testable import ReaderCore
 
-/// Points along the segments that join `corners`, `step` points apart, closed back to the first corner.
-private func trace(_ corners: [CGPoint], closed: Bool = true, step: Int = 6) -> [CGPoint] {
-    let ring = closed ? corners + [corners[0]] : corners
-    return zip(ring, ring.dropFirst()).flatMap { a, b in
-        (0..<step).map { i in
-            let t = CGFloat(i) / CGFloat(step)
-            return CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+/// Points along the closed outline through `corners`, starting `start` of the way round, back to the start.
+private func outline(_ corners: [CGPoint], start: Double = 0, perSide: Int = 30) -> [CGPoint] {
+    var points: [CGPoint] = []
+    for (i, a) in corners.enumerated() {
+        let b = corners[(i + 1) % corners.count]
+        for j in 0..<perSide {
+            let t = CGFloat(j) / CGFloat(perSide)
+            points.append(CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t))
         }
-    } + [ring.last!]
+    }
+    let shift = Int(start * Double(points.count))
+    let rotated = Array(points[shift...] + points[..<shift])
+    return rotated + [rotated[0]]
 }
 
-private func circle(center: CGPoint, radius: CGFloat, count: Int = 60) -> [CGPoint] {
-    (0...count).map { i in
-        let angle = CGFloat(i) / CGFloat(count) * 2 * .pi
-        return CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+/// A slow, regular wobble, like a hand that is not perfectly steady.
+private func wobbly(_ points: [CGPoint], by amount: CGFloat = 2) -> [CGPoint] {
+    points.enumerated().map { i, p in
+        CGPoint(x: p.x + amount * sin(CGFloat(i) * 0.3), y: p.y + amount * cos(CGFloat(i) * 0.23))
     }
+}
+
+private func round(center: CGPoint, rx: CGFloat, ry: CGFloat, turn: CGFloat = 0, upTo end: CGFloat = 2 * .pi) -> [CGPoint] {
+    (0...60).map { i in
+        let t = end * CGFloat(i) / 60
+        let x = rx * cos(t), y = ry * sin(t)
+        return CGPoint(x: center.x + x * cos(turn) - y * sin(turn), y: center.y + x * sin(turn) + y * cos(turn))
+    }
+}
+
+private func corners(of shape: InkShape?) -> [CGPoint]? {
+    if case .polygon(let corners) = shape { return corners }
+    return nil
+}
+
+private func sides(_ corners: [CGPoint]) -> [CGFloat] {
+    corners.indices.map { i in
+        let next = corners[(i + 1) % corners.count]
+        return hypot(next.x - corners[i].x, next.y - corners[i].y)
+    }
+}
+
+private func near(_ a: CGPoint, _ b: CGPoint, within tolerance: CGFloat = 1) -> Bool {
+    hypot(a.x - b.x, a.y - b.y) <= tolerance
 }
 
 struct ShapeRecognizerTests {
-    @Test func straightStrokeBecomesALine() {
-        let points = trace([CGPoint(x: 0, y: 0), CGPoint(x: 200, y: 4)], closed: false)
-        #expect(ShapeRecognizer.recognize(points) == .line(from: CGPoint(x: 0, y: 0), to: CGPoint(x: 200, y: 4)))
+    // MARK: Lines
+
+    @Test func nearlyHorizontalLineBecomesHorizontal() {
+        let points = wobbly((0...80).map { CGPoint(x: 100 + CGFloat($0) * 3, y: 200 + CGFloat($0) * 0.1) }, by: 1)
+        guard case .line(let a, let b) = ShapeRecognizer.recognize(points) else {
+            Issue.record("not a line")
+            return
+        }
+        #expect(abs(a.y - b.y) < 0.001)
+    }
+
+    @Test func slantedLineKeepsItsDirection() {
+        let points = (0...80).map { CGPoint(x: CGFloat($0) * 3, y: CGFloat($0) * 2) }
+        guard case .line(let a, let b) = ShapeRecognizer.recognize(points) else {
+            Issue.record("not a line")
+            return
+        }
+        #expect(near(a, points[0]) && near(b, points[80]))
     }
 
     @Test func bentStrokeIsNotALine() {
-        let points = trace([CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 80), CGPoint(x: 200, y: 0)], closed: false)
-        #expect(ShapeRecognizer.recognize(points) == nil)
+        let bent = outline([CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 80), CGPoint(x: 200, y: 0)]).prefix(61)
+        #expect(ShapeRecognizer.recognize(Array(bent)) == nil)
     }
+
+    // MARK: Polygons
+
+    @Test func squareStartedMidSideBecomesASquare() {
+        let drawn = wobbly(outline([CGPoint(x: 0, y: 0), CGPoint(x: 200, y: 4), CGPoint(x: 196, y: 210), CGPoint(x: -4, y: 200)],
+                                   start: 0.1))
+        guard let square = corners(of: ShapeRecognizer.recognize(drawn)) else {
+            Issue.record("not a polygon")
+            return
+        }
+        #expect(square.count == 4)
+        let lengths = sides(square)
+        #expect(lengths.allSatisfy { abs($0 - lengths[0]) < 0.001 })
+        // Sides straightened to the axes.
+        #expect(abs(square[0].y - square[1].y) < 0.001 || abs(square[0].x - square[1].x) < 0.001)
+    }
+
+    @Test func turnedRectangleKeepsItsAngleAndSize() {
+        let turn: CGFloat = 0.5
+        let flat = [CGPoint(x: 0, y: 0), CGPoint(x: 300, y: 0), CGPoint(x: 300, y: 120), CGPoint(x: 0, y: 120)]
+        let drawn = outline(flat.map { CGPoint(x: $0.x * cos(turn) - $0.y * sin(turn), y: $0.x * sin(turn) + $0.y * cos(turn)) },
+                            start: 0.4)
+        guard let rectangle = corners(of: ShapeRecognizer.recognize(drawn)) else {
+            Issue.record("not a polygon")
+            return
+        }
+        #expect(rectangle.count == 4)
+        let lengths = sides(rectangle).sorted()
+        #expect(abs(lengths[0] - 120) < 2 && abs(lengths[3] - 300) < 2)
+    }
+
+    @Test func triangleKeepsItsThreeCorners() {
+        let triangle = [CGPoint(x: 100, y: 0), CGPoint(x: 200, y: 180), CGPoint(x: 0, y: 180)]
+        guard let found = corners(of: ShapeRecognizer.recognize(wobbly(outline(triangle, start: 0.3)))) else {
+            Issue.record("not a polygon")
+            return
+        }
+        #expect(found.count == 3)
+        #expect(triangle.allSatisfy { corner in found.contains { near($0, corner, within: 8) } })
+    }
+
+    @Test func pentagonIsAPolygonNotACircle() {
+        let pentagon = (0..<5).map { i in
+            CGPoint(x: 100 + 100 * cos(2 * .pi * CGFloat(i) / 5), y: 100 + 100 * sin(2 * .pi * CGFloat(i) / 5))
+        }
+        #expect(corners(of: ShapeRecognizer.recognize(wobbly(outline(pentagon, start: 0.5))))?.count == 5)
+    }
+
+    // MARK: Ellipses
 
     @Test func roundStrokeBecomesACircle() {
-        let shape = ShapeRecognizer.recognize(circle(center: CGPoint(x: 100, y: 100), radius: 60))
-        guard case let .ellipse(box)? = shape else {
-            Issue.record("expected an ellipse, got \(String(describing: shape))")
+        let shape = ShapeRecognizer.recognize(wobbly(round(center: CGPoint(x: 100, y: 100), rx: 100, ry: 94)))
+        guard case .ellipse(let center, let radii, _) = shape else {
+            Issue.record("not round: \(String(describing: shape))")
             return
         }
-        #expect(abs(box.width - box.height) < 4)
-        #expect(abs(box.midX - 100) < 2 && abs(box.midY - 100) < 2)
+        #expect(radii.width == radii.height)
+        #expect(near(center, CGPoint(x: 100, y: 100), within: 4))
     }
 
-    @Test func closedRectangleBecomesARectangle() {
-        let corners = [CGPoint(x: 0, y: 0), CGPoint(x: 220, y: 0), CGPoint(x: 220, y: 90), CGPoint(x: 0, y: 90)]
-        let shape = ShapeRecognizer.recognize(trace(corners))
-        guard case let .polygon(vertices)? = shape else {
-            Issue.record("expected a polygon, got \(String(describing: shape))")
+    @Test func turnedOvalKeepsItsAxes() {
+        let shape = ShapeRecognizer.recognize(round(center: CGPoint(x: 0, y: 0), rx: 150, ry: 60, turn: 0.6))
+        guard case .ellipse(_, let radii, let angle) = shape else {
+            Issue.record("not an ellipse")
             return
         }
-        #expect(vertices.count == 4)
-        #expect(vertices.contains(CGPoint(x: 220, y: 90)))
+        #expect(abs(radii.width - 150) < 2 && abs(radii.height - 60) < 2)
+        #expect(abs(abs(angle) - 0.6) < 0.02)
     }
 
-    @Test func nearlyEqualSidesBecomeASquare() {
-        let corners = [CGPoint(x: 10, y: 10), CGPoint(x: 150, y: 12), CGPoint(x: 148, y: 150), CGPoint(x: 8, y: 146)]
-        let shape = ShapeRecognizer.recognize(trace(corners))
-        guard case let .polygon(vertices)? = shape else {
-            Issue.record("expected a square, got \(String(describing: shape))")
-            return
-        }
-        let width = vertices[1].x - vertices[0].x
-        let height = vertices[3].y - vertices[0].y
-        #expect(abs(width - height) < 0.01)
-    }
+    // MARK: Left alone
 
-    @Test func closedTriangleBecomesATriangle() {
-        let corners = [CGPoint(x: 0, y: 0), CGPoint(x: 160, y: 0), CGPoint(x: 80, y: 140)]
-        let shape = ShapeRecognizer.recognize(trace(corners))
-        guard case let .polygon(vertices)? = shape else {
-            Issue.record("expected a triangle, got \(String(describing: shape))")
-            return
-        }
-        #expect(vertices.count == 3)
-    }
-
-    @Test func smallMarksAreLeftAlone() {
-        let points = trace([CGPoint(x: 0, y: 0), CGPoint(x: 20, y: 0)], closed: false)
-        #expect(ShapeRecognizer.recognize(points) == nil)
-        #expect(ShapeRecognizer.recognize(circle(center: .zero, radius: 12)) == nil)
-    }
-
-    @Test func openCurveIsNotAShape() {
-        let arc = (0...40).map { i -> CGPoint in
-            let angle = CGFloat(i) / 40 * .pi
-            return CGPoint(x: cos(angle) * 100, y: sin(angle) * 100)
-        }
+    @Test func handwritingAndScribblesStayAsTheyAre() {
+        // Digits and letters at writing size, such as 1 and 0.
+        let one = (0...20).map { CGPoint(x: 10 + CGFloat($0) * 0.2, y: CGFloat($0)) }
+        let zero = round(center: CGPoint(x: 10, y: 10), rx: 6, ry: 10)
+        #expect(ShapeRecognizer.recognize(one) == nil)
+        #expect(ShapeRecognizer.recognize(zero) == nil)
+        let zigzag = (0..<80).map { CGPoint(x: CGFloat($0) * 4, y: CGFloat($0 % 10) * 6) }
+        #expect(ShapeRecognizer.recognize(zigzag) == nil)
+        let arc = round(center: CGPoint(x: 100, y: 100), rx: 100, ry: 100, upTo: .pi)
         #expect(ShapeRecognizer.recognize(arc) == nil)
     }
 
-    @Test func tooFewPointsAreNotRecognized() {
-        #expect(ShapeRecognizer.recognize([CGPoint(x: 0, y: 0), CGPoint(x: 200, y: 0)]) == nil)
-    }
-}
+    // MARK: Dragging after the snap
 
-struct HoldTests {
-    /// Points one tenth of a second apart, all at `x` for the last `pause` seconds, moving before that.
-    private func stroke(pause: TimeInterval, drift: CGFloat = 0) -> (points: [CGPoint], times: [TimeInterval]) {
-        var points: [CGPoint] = []
-        var times: [TimeInterval] = []
-        for i in 0..<20 {
-            points.append(CGPoint(x: CGFloat(i) * 5, y: 0))
-            times.append(TimeInterval(i) * 0.1)
+    @Test func draggedLineEndFollowsThePencil() {
+        let line = InkShape.line(CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 0))
+        let anchor = line.anchor(oppositeTo: CGPoint(x: 100, y: 0))
+        #expect(anchor == CGPoint(x: 0, y: 0))
+        guard case .line(let a, let b) = line.dragged(anchor: anchor, from: CGPoint(x: 100, y: 0), to: CGPoint(x: 60, y: 80)) else {
+            Issue.record("not a line")
+            return
         }
-        let end = times.last!
-        let steps = Int(pause * 10)
-        for i in stride(from: 1, through: steps, by: 1) {
-            points.append(CGPoint(x: points.last!.x + (i == steps ? drift : 0), y: 0))
-            times.append(end + TimeInterval(i) * 0.1)
+        #expect(near(a, .zero, within: 0.01) && near(b, CGPoint(x: 60, y: 80), within: 0.01))
+    }
+
+    @Test func draggedRectangleKeepsTheOppositeCorner() {
+        let square = InkShape.polygon([CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 0), CGPoint(x: 100, y: 100), CGPoint(x: 0, y: 100)])
+        let anchor = square.anchor(oppositeTo: CGPoint(x: 100, y: 100))
+        #expect(anchor == .zero)
+        guard let bigger = corners(of: square.dragged(anchor: anchor, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 150, y: 150))) else {
+            Issue.record("not a polygon")
+            return
         }
-        return (points, times)
+        #expect(sides(bigger).allSatisfy { abs($0 - 150) < 0.01 })
+        #expect(near(bigger[0], .zero, within: 0.01))
     }
 
-    @Test func pauseAtTheEndCountsAsHold() {
-        let s = stroke(pause: 0.5)
-        #expect(ShapeRecognizer.endsWithHold(s.points, times: s.times))
+    @Test func draggedCircleStaysACircle() {
+        let circle = InkShape.ellipse(center: CGPoint(x: 50, y: 0), radii: CGSize(width: 50, height: 50), angle: 0)
+        let anchor = circle.anchor(oppositeTo: CGPoint(x: 100, y: 0))
+        guard case .ellipse(_, let radii, let angle) = circle.dragged(anchor: anchor, from: CGPoint(x: 100, y: 0),
+                                                                      to: CGPoint(x: 0, y: 200)) else {
+            Issue.record("not an ellipse")
+            return
+        }
+        #expect(abs(radii.width - 100) < 0.5 && radii.width == radii.height && angle == 0)
     }
 
-    @Test func strokeEndingInMotionIsNotAHold() {
-        let s = stroke(pause: 0)
-        #expect(!ShapeRecognizer.endsWithHold(s.points, times: s.times))
+    // MARK: Outline
+
+    @Test func outlineIsClosedAndDense() {
+        let square = InkShape.polygon([CGPoint(x: 0, y: 0), CGPoint(x: 40, y: 0), CGPoint(x: 40, y: 40), CGPoint(x: 0, y: 40)])
+        let points = square.outline(spacing: 4)
+        #expect(points.first == points.last)
+        #expect(points.count == 41)
+        #expect(zip(points, points.dropFirst()).allSatisfy { hypot($1.x - $0.x, $1.y - $0.y) <= 4.001 })
     }
 
-    @Test func movingFivePointsAtTheEndIsNotAHold() {
-        let s = stroke(pause: 0.5, drift: 5)
-        #expect(!ShapeRecognizer.endsWithHold(s.points, times: s.times))
-    }
-
-    @Test func mismatchedInputIsNotAHold() {
-        #expect(!ShapeRecognizer.endsWithHold([CGPoint.zero], times: []))
+    @Test func resamplingGivesEvenlySpacedPoints() {
+        let points = ShapeRecognizer.resampled([CGPoint(x: 0, y: 0), CGPoint(x: 630, y: 0)], count: 64)
+        #expect(points.count == 64)
+        #expect(zip(points, points.dropFirst()).allSatisfy { abs(($1.x - $0.x) - 10) < 0.01 })
     }
 }
