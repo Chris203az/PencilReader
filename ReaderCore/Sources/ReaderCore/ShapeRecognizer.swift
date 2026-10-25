@@ -42,8 +42,10 @@ public enum ShapeRecognizer {
         // A straight stroke: its ends are about as far apart as its whole length.
         let chord = distance(first, last)
         if chord > 0.9 * length {
+            // Short strokes are letters such as l, 1 or -; only a long, dead-straight one is a line.
+            guard chord >= 2 * minimumSize else { return nil }
             let deviation = points.map { distance(of: $0, toSegmentFrom: first, to: last) }.max() ?? 0
-            return deviation <= 0.04 * chord + 2 ? .line(from: first, to: last) : nil
+            return deviation <= 0.03 * chord + 1.5 ? .line(from: first, to: last) : nil
         }
 
         // Any other shape must come back to where it started.
@@ -73,20 +75,6 @@ public enum ShapeRecognizer {
         }
     }
 
-    /// True when the pen rests at the end of the stroke: the last points stay within `tolerance`
-    /// of the final point for at least `minimum` seconds. Only a held stroke is straightened,
-    /// so letters and fraction bars written in motion are left alone.
-    public static func endsWithHold(_ points: [CGPoint], times: [TimeInterval],
-                                    minimum: TimeInterval = 0.4, tolerance: CGFloat = 3) -> Bool {
-        guard points.count == times.count, let last = points.last, let end = times.last else { return false }
-        var start = end
-        for (point, time) in zip(points, times).reversed() {
-            guard distance(point, last) <= tolerance else { break }
-            start = time
-        }
-        return end - start >= minimum
-    }
-
     // MARK: Helpers
 
     /// True when every point sits close to the ellipse inscribed in the box.
@@ -98,7 +86,7 @@ public enum ShapeRecognizer {
             let x = (point.x - box.midX) / rx, y = (point.y - box.midY) / ry
             return sum + abs(hypot(x, y) - 1)
         } / CGFloat(points.count)
-        return error <= 0.1
+        return error <= 0.07
     }
 
     private static func boundingBox(of points: [CGPoint]) -> CGRect {

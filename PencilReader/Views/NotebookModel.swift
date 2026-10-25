@@ -18,7 +18,7 @@ final class NotebookModel {
     var paper: PaperStyle {
         didSet { UserDefaults.standard.set(paper.rawValue, forKey: Self.paperKey) }
     }
-    /// Turns a stroke that looks like a line, a rectangle, a triangle or a circle into a clean shape.
+    /// Turns a stroke the pen holds at the end into the clean shape it was meant to be.
     var straightensShapes: Bool {
         didSet { UserDefaults.standard.set(straightensShapes, forKey: Self.shapesKey) }
     }
@@ -27,8 +27,10 @@ final class NotebookModel {
     /// The page whose drawing the canvas shows. It can differ from `pageIndex` only while
     /// a page change is being handled, so saving always goes to the page that was written on.
     @ObservationIgnored private var canvasPage: Int?
-    /// How many strokes of the shown page have already been looked at for shapes.
-    @ObservationIgnored private var checkedStrokeCount = 0
+    /// How many strokes of the shown page are already settled, shape or not.
+    @ObservationIgnored private var settledStrokeCount = 0
+    /// The shape of the stroke the pen just held, waiting for PencilKit to commit that stroke.
+    @ObservationIgnored private var pendingShape: InkShape?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     private static let paperKey = "notebookPaper"
     private static let shapesKey = "notebookShapes"
@@ -50,6 +52,7 @@ final class NotebookModel {
         flush()
         pageIndex = page
         isWriting = notedPages.contains(page)
+        pendingShape = nil
         if isWriting {
             loadDrawing()
         } else {
@@ -77,11 +80,13 @@ final class NotebookModel {
     }
 
     func drawingDidChange() {
+        // An erase or an undo can leave fewer strokes than were settled before.
+        settledStrokeCount = min(settledStrokeCount, canvas?.drawing.strokes.count ?? 0)
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: Self.saveDelay)
             guard !Task.isCancelled else { return }
-            self?.finishStroke()
+            self?.flush()
         }
     }
 
@@ -99,23 +104,20 @@ final class NotebookModel {
     func undo() { canvas?.undoManager?.undo() }
     func redo() { canvas?.undoManager?.redo() }
 
-    /// Runs once the pen has lifted: straightens the stroke just written if it is a shape, then saves.
-    private func finishStroke() {
-        straightenNewStroke()
-        flush()
+    /// The pen was held at the end of a stroke and it showed this shape: replace the stroke with it.
+    func setPendingShape(_ shape: InkShape) {
+        pendingShape = shape
+        applyPendingShape()
     }
 
-    private func straightenNewStroke() {
-        guard let canvas else { return }
+    /// Replaces the newest stroke with the pending shape, once PencilKit has committed that stroke.
+    /// Called outside PencilKit's callbacks, so the drawing is never changed while PencilKit is still busy.
+    func applyPendingShape() {
+        guard let shape = pendingShape, let canvas else { return }
         var strokes = canvas.drawing.strokes
-        defer { checkedStrokeCount = strokes.count }
-        guard straightensShapes, strokes.count > checkedStrokeCount, let stroke = strokes.last,
+        guard strokes.count > settledStrokeCount, let stroke = strokes.last,
               let template = stroke.path.first else { return }
-
-        let points = stroke.path.map { $0.location.applying(stroke.transform) }
-        // Only a stroke the pen holds at its end becomes a shape; one written in motion stays as it is.
-        guard ShapeRecognizer.endsWithHold(points, times: stroke.path.map(\.timeOffset)),
-              let shape = ShapeRecognizer.recognize(points) else { return }
+        pendingShape = nil
 
         // Same ink, color and pressure as the stroke it replaces.
         let controls = shape.outline.enumerated().map { index, location in
@@ -127,6 +129,7 @@ final class NotebookModel {
                                               path: PKStrokePath(controlPoints: controls,
                                                                  creationDate: stroke.path.creationDate))
         swapDrawing(to: PKDrawing(strokes: strokes))
+        settledStrokeCount = strokes.count
     }
 
     /// Shows another drawing and records the change, so Annulla brings the previous one back.
@@ -145,7 +148,7 @@ final class NotebookModel {
         canvas.drawing = NoteStore.drawing(of: bookID, page: pageIndex) ?? PKDrawing()
         canvas.undoManager?.removeAllActions()
         canvas.fitContent()
-        checkedStrokeCount = canvas.drawing.strokes.count
+        settledStrokeCount = canvas.drawing.strokes.count
     }
 }
 

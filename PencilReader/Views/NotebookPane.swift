@@ -100,11 +100,13 @@ struct NotebookCanvas: UIViewRepresentable {
     }
 }
 
-/// Paper and canvas are siblings. The canvas is never given extra subviews, and its
+/// Paper, canvas and the shape preview. The canvas is never given extra subviews, and its
 /// view hierarchy is never changed from inside PencilKit's drawing callbacks.
 final class NotebookSheetView: UIView {
     let canvas = NotebookCanvasView()
     private let paperView = PaperView()
+    /// The clean shape shown while the pen is held, above the ink.
+    private let previewLayer = CAShapeLayer()
 
     var paper: PaperStyle = .grid {
         didSet { paperView.style = paper }
@@ -115,7 +117,13 @@ final class NotebookSheetView: UIView {
         paperView.style = paper
         addSubview(paperView)
         addSubview(canvas)
+        previewLayer.fillColor = nil
+        previewLayer.lineWidth = 3
+        previewLayer.lineCap = .round
+        previewLayer.lineJoin = .round
+        layer.addSublayer(previewLayer)
         canvas.onScroll = { [weak self] offset in self?.paperView.scrollOffset = offset }
+        canvas.onPreview = { [weak self] shape in self?.showPreview(shape) }
     }
 
     required init?(coder: NSCoder) {
@@ -126,7 +134,25 @@ final class NotebookSheetView: UIView {
         super.layoutSubviews()
         paperView.frame = bounds
         canvas.frame = bounds
+        previewLayer.frame = bounds
         canvas.fitContent()
+    }
+
+    /// Draws the shape where the pen is, or removes the preview.
+    private func showPreview(_ shape: InkShape?) {
+        guard let shape else {
+            previewLayer.path = nil
+            return
+        }
+        // The shape is in drawing coordinates; the layer is in the screen's.
+        let offset = canvas.contentOffset
+        let path = UIBezierPath()
+        for (index, point) in shape.outline.enumerated() {
+            let screen = CGPoint(x: point.x - offset.x, y: point.y - offset.y)
+            if index == 0 { path.move(to: screen) } else { path.addLine(to: screen) }
+        }
+        previewLayer.path = path.cgPath
+        previewLayer.strokeColor = ((canvas.tool as? PKInkingTool)?.color ?? .label).cgColor
     }
 }
 
@@ -136,11 +162,24 @@ final class NotebookCanvasView: PKCanvasView {
     weak var notebook: NotebookModel?
     /// Called on every scroll, so the paper behind can move with the writing.
     var onScroll: ((CGPoint) -> Void)?
+    /// Called with the shape to preview while the pen is held still, and with nil to clear it.
+    var onPreview: ((InkShape?) -> Void)?
 
     private let toolPicker = PKToolPicker()
     /// Never the canvas itself: a canvas that is its own delegate also answers
     /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
     private let events = CanvasEvents()
+    /// The Pencil stroke in progress, in drawing coordinates, and when each point was reached.
+    private var liveStroke: [(point: CGPoint, time: TimeInterval)] = []
+    /// Where the pen is resting, and when it came to rest there.
+    private var restPoint: CGPoint?
+    private var restTime: TimeInterval = 0
+    private var holdTask: Task<Void, Never>?
+    private var previewShape: InkShape?
+    /// How long the pen must rest before the stroke is taken for a shape.
+    private static let holdDelay = Duration.milliseconds(450)
+    /// How far the pen may wander while it is still resting.
+    private static let restTolerance: CGFloat = 3
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -149,6 +188,7 @@ final class NotebookCanvasView: PKCanvasView {
         backgroundColor = .clear
         events.canvas = self
         delegate = events
+        observePencil()
     }
 
     required init?(coder: NSCoder) {
@@ -173,8 +213,111 @@ final class NotebookCanvasView: PKCanvasView {
 
     fileprivate func drawingDidChange() {
         // Grows after the current callback, not while PencilKit is still handling the stroke.
-        DispatchQueue.main.async { [weak self] in self?.fitContent() }
+        // A shape waiting for its stroke is applied at the same moment, outside PencilKit's callback.
+        DispatchQueue.main.async { [weak self] in
+            self?.fitContent()
+            self?.notebook?.applyPendingShape()
+        }
         notebook?.drawingDidChange()
+    }
+
+    // MARK: Shape recognition
+
+    /// Watches the Pencil without taking its touches: PencilKit still draws, and the canvas
+    /// learns where the stroke goes and when the pen rests at the end of it.
+    private func observePencil() {
+        let observer = PencilObserver()
+        observer.cancelsTouchesInView = false
+        observer.onBegan = { [weak self] point, time in self?.penBegan(at: point, time: time) }
+        observer.onMoved = { [weak self] point, time in self?.penMoved(to: point, time: time) }
+        observer.onEnded = { [weak self] in self?.penEnded() }
+        addGestureRecognizer(observer)
+    }
+
+    private func penBegan(at point: CGPoint, time: TimeInterval) {
+        liveStroke = [(point, time)]
+        restPoint = point
+        restTime = time
+        clearPreview()
+        scheduleHold()
+    }
+
+    private func penMoved(to point: CGPoint, time: TimeInterval) {
+        liveStroke.append((point, time))
+        guard let rest = restPoint, hypot(point.x - rest.x, point.y - rest.y) > Self.restTolerance else { return }
+        // The pen moved on: it is no longer resting, so any preview goes until it rests again.
+        restPoint = point
+        restTime = time
+        clearPreview()
+        scheduleHold()
+    }
+
+    private func penEnded() {
+        holdTask?.cancel()
+        holdTask = nil
+        restPoint = nil
+        guard let shape = previewShape else { return }
+        previewShape = nil
+        onPreview?(nil)
+        notebook?.setPendingShape(shape)
+        // The stroke may already be committed: then it can be replaced now, not on the next change.
+        DispatchQueue.main.async { [weak self] in self?.notebook?.applyPendingShape() }
+    }
+
+    private func scheduleHold() {
+        holdTask?.cancel()
+        guard notebook?.straightensShapes == true else { return }
+        let rest = restPoint, since = restTime
+        holdTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.holdDelay)
+            guard !Task.isCancelled else { return }
+            self?.showPreviewIfHeld(restingAt: rest, since: since)
+        }
+    }
+
+    /// Shows the shape the stroke makes so far, if the pen is still resting where it was when this was scheduled.
+    private func showPreviewIfHeld(restingAt rest: CGPoint?, since: TimeInterval) {
+        guard rest == restPoint, since == restTime, liveStroke.count >= 6 else { return }
+        guard let shape = ShapeRecognizer.recognize(liveStroke.map(\.point)) else { return }
+        previewShape = shape
+        onPreview?(shape)
+    }
+
+    private func clearPreview() {
+        guard previewShape != nil else { return }
+        previewShape = nil
+        onPreview?(nil)
+    }
+}
+
+/// Reads the Pencil's touches without taking them from PencilKit.
+private final class PencilObserver: UIGestureRecognizer {
+    var onBegan: ((CGPoint, TimeInterval) -> Void)?
+    var onMoved: ((CGPoint, TimeInterval) -> Void)?
+    var onEnded: (() -> Void)?
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = pencilTouch(in: touches) else { return }
+        onBegan?(touch.location(in: view), event.timestamp)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard let touch = pencilTouch(in: touches) else { return }
+        onMoved?(touch.location(in: view), event.timestamp)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard pencilTouch(in: touches) != nil else { return }
+        onEnded?()
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        guard pencilTouch(in: touches) != nil else { return }
+        onEnded?()
+    }
+
+    private func pencilTouch(in touches: Set<UITouch>) -> UITouch? {
+        touches.first { $0.type == .pencil }
     }
 }
 
