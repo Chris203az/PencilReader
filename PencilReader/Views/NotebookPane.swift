@@ -129,7 +129,7 @@ struct NotebookCanvas: UIViewRepresentable {
             view.canvas.tool = tools.pkTool
             #if DEBUG
             if let eraser = view.canvas.tool as? PKEraserTool {
-                NotebookDiagnostics.log("gomma \(eraser.eraserType == .bitmap ? "pixel" : "tratto") larga \(eraser.width)"
+                NotebookDiagnostics.log("gomma \(eraser.eraserType == .vector ? "tratto" : "pixel") larga \(eraser.width)"
                     + " (scelta \(tools.eraserWidth), limiti \(tools.eraserRange))")
             }
             #endif

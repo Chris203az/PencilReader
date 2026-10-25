@@ -36,8 +36,9 @@ final class NotebookTools {
 
     func setEraserWidth(_ width: Double) { state.setEraserWidth(width) }
 
-    /// The kind of eraser chosen, as PencilKit names it.
-    var eraserType: PKEraserTool.EraserType { state.eraserIsPixel ? .bitmap : .vector }
+    /// The kind of eraser chosen, as PencilKit names it. The pixel eraser that takes a size is
+    /// `.fixedWidthBitmap`: plain `.bitmap` has no size range at all, so its slider could not move.
+    var eraserType: PKEraserTool.EraserType { state.eraserIsPixel ? .fixedWidthBitmap : .vector }
 
     /// The sizes PencilKit allows for the kind of eraser chosen.
     var eraserRange: ClosedRange<Double> {
