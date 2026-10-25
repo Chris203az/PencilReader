@@ -1,4 +1,5 @@
 import PhotosUI
+import ReaderCore
 import SwiftUI
 import UniformTypeIdentifiers
 import VisionKit
@@ -21,6 +22,7 @@ struct LibraryView: View {
 
     @Environment(Library.self) private var library
     @Environment(BookRecognizer.self) private var recognizer
+    @Environment(ReadingStats.self) private var stats
     @Environment(\.scenePhase) private var scenePhase
     @State private var showScanner = false
     @State private var showPDFImporter = false
@@ -35,6 +37,7 @@ struct LibraryView: View {
     @State private var collectionName = ""
     @State private var deletingCollection: DocumentCollection?
     @State private var showWords = false
+    @State private var showStats = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 24)]
 
@@ -54,7 +57,8 @@ struct LibraryView: View {
                         ForEach(library.visibleDocuments) { document in
                             Button { open(document) } label: {
                                 DocumentCard(document: document, thumbnail: library.thumbnailURL(of: document),
-                                             recognition: recognitionStatus(of: document))
+                                             recognition: recognitionStatus(of: document),
+                                             readingTime: stats.log.totalSeconds(of: document.id))
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
@@ -86,6 +90,9 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { library.reload() } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -107,6 +114,10 @@ struct LibraryView: View {
                 open(document)
             }
             .presentationSizing(.page)
+        }
+        .sheet(isPresented: $showStats) {
+            ReadingStatsView { document in open(document) }
+                .presentationSizing(.form)
         }
         .fullScreenCover(isPresented: $showScanner) {
             DocumentScannerView { pages in
@@ -132,6 +143,7 @@ struct LibraryView: View {
             Button("Elimina", role: .destructive) {
                 if let deleting {
                     recognizer.stop(deleting)
+                    stats.remove(deleting.id)
                     library.delete(deleting)
                 }
             }
@@ -287,6 +299,7 @@ private struct DocumentCard: View {
     let document: LibraryDocument
     let thumbnail: URL
     let recognition: String?
+    let readingTime: TimeInterval
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -307,6 +320,11 @@ private struct DocumentCard: View {
                 .foregroundStyle(.secondary)
             ProgressView(value: Double(document.lastPage + 1), total: Double(max(document.pageCount, 1)))
                 .tint(.accentColor)
+            if readingTime >= 60 {
+                Label("\(ReadingLog.duration(readingTime)) di lettura", systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let recognition {
                 Label(recognition, systemImage: "text.viewfinder")
                     .font(.caption)

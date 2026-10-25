@@ -7,6 +7,8 @@ struct ReaderView: View {
     @Environment(Library.self) private var library
     @Environment(BookRecognizer.self) private var recognizer
     @Environment(WordList.self) private var wordList
+    @Environment(ReadingStats.self) private var stats
+    @Environment(StudyTimer.self) private var studyTimer
     @Environment(\.dismiss) private var dismiss
     @State private var model: ReaderModel?
     @State private var showPages = false
@@ -48,11 +50,18 @@ struct ReaderView: View {
                 .translationTask(model.translationConfig) { session in
                     await model.translate(using: session)
                 }
-                .onChange(of: model.pageIndex) { _, page in notebook?.show(page) }
+                .onChange(of: model.pageIndex) { _, page in
+                    notebook?.show(page)
+                    stats.pageShown(page, of: document.id)
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase != .active {
                         notebook?.flush()
                         study?.flush()
+                        stats.stopReading()
+                    } else {
+                        stats.startReading(document.id)
+                        studyTimer.refresh()
                     }
                 }
                 .sheet(isPresented: $showPages) {
@@ -106,7 +115,13 @@ struct ReaderView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button(library.currentCollection.name, systemImage: "chevron.left") { dismiss() }
             }
+            ToolbarItem(placement: .topBarLeading) {
+                StudyTimerButton(bookID: document.id)
+            }
         }
+        // Reading time counts only while the book is open and the app is in front.
+        .onAppear { if scenePhase == .active { stats.startReading(document.id) } }
+        .onDisappear { stats.stopReading() }
         .onAppear {
             // Created once here, not in init: the model starts OCR as soon as it exists.
             if model == nil {
@@ -114,6 +129,7 @@ struct ReaderView: View {
                 model = reader
                 notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
                 study = StudyModel(bookID: document.id)
+                stats.pageShown(reader.pageIndex, of: document.id)
                 thumbnails = PageThumbnails(
                     bookID: document.id, pageCount: document.pageCount,
                     pdfURL: document.kind == .pdf ? library.pdfURL(of: document) : nil,
