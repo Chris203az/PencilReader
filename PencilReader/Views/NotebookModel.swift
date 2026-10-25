@@ -102,6 +102,7 @@ final class NotebookModel {
         canvasPage = pageIndex
         canvas.drawing = NoteStore.drawing(of: bookID, page: pageIndex) ?? PKDrawing()
         canvas.undoManager?.removeAllActions()
+        canvas.resetZoom()
         canvas.fitContent()
     }
 }

@@ -116,6 +116,10 @@ final class NotebookSheetView: UIView {
     private let paperView = PaperView()
     private let preview = CAShapeLayer()
     private var previewShape: InkShape?
+    /// The pen's width on the page; on screen it grows with the zoom.
+    private var previewWidth: CGFloat = 1
+    /// "Annulla" or "Ripristina", shown for a moment after a swipe.
+    private let toast = UILabel()
 
     var paper: PaperStyle = .grid {
         didSet { paperView.style = paper }
@@ -130,10 +134,19 @@ final class NotebookSheetView: UIView {
         preview.lineCap = .round
         preview.lineJoin = .round
         layer.addSublayer(preview)
-        canvas.onScroll = { [weak self] offset in
-            self?.paperView.scrollOffset = offset
+        toast.font = .preferredFont(forTextStyle: .headline)
+        toast.textColor = .white
+        toast.textAlignment = .center
+        toast.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        toast.layer.cornerRadius = 14
+        toast.clipsToBounds = true
+        toast.alpha = 0
+        addSubview(toast)
+        canvas.onScroll = { [weak self] offset, zoom in
+            self?.paperView.show(offset: offset, zoom: zoom)
             self?.drawPreview()
         }
+        canvas.onSwipeAction = { [weak self] name in self?.showToast(name) }
         canvas.onShapePreview = { [weak self] shape, color, width in
             self?.showPreview(shape, color: color, width: width)
         }
@@ -154,7 +167,7 @@ final class NotebookSheetView: UIView {
     private func showPreview(_ shape: InkShape?, color: UIColor, width: CGFloat) {
         previewShape = shape
         preview.strokeColor = color.cgColor
-        preview.lineWidth = width
+        previewWidth = width
         drawPreview()
     }
 
@@ -167,11 +180,25 @@ final class NotebookSheetView: UIView {
             return
         }
         let path = UIBezierPath()
+        let zoom = canvas.zoomScale
+        preview.lineWidth = previewWidth * zoom
         for (i, point) in previewShape.outline(spacing: 4).enumerated() {
-            let onScreen = canvas.convert(point, to: self)
+            // Drawing coordinates are the content's before zooming.
+            let onScreen = canvas.convert(CGPoint(x: point.x * zoom, y: point.y * zoom), to: self)
             if i == 0 { path.move(to: onScreen) } else { path.addLine(to: onScreen) }
         }
         preview.path = path.cgPath
+    }
+
+    private func showToast(_ text: String) {
+        toast.text = text
+        let size = toast.intrinsicContentSize
+        toast.frame = CGRect(x: bounds.midX - (size.width + 36) / 2, y: 20, width: size.width + 36, height: size.height + 16)
+        toast.layer.removeAllAnimations()
+        toast.alpha = 1
+        UIView.animate(withDuration: 0.25, delay: 0.35, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            self.toast.alpha = 0
+        }
     }
 }
 
@@ -183,8 +210,10 @@ final class NotebookSheetView: UIView {
 /// Without the pause nothing happens, so handwriting is never touched.
 final class NotebookCanvasView: PKCanvasView {
     weak var notebook: NotebookModel?
-    /// Called on every scroll, so the paper behind can move with the writing.
-    var onScroll: ((CGPoint) -> Void)?
+    /// Called on every scroll and zoom, so the paper behind can move and grow with the writing.
+    var onScroll: ((CGPoint, CGFloat) -> Void)?
+    /// Called with "Annulla" or "Ripristina" after a finger swipe did that.
+    var onSwipeAction: ((String) -> Void)?
     /// Shows the shape snapped while the Pencil is held, in the ink's color and width; nil hides it.
     var onShapePreview: ((InkShape?, UIColor, CGFloat) -> Void)?
 
@@ -193,6 +222,8 @@ final class NotebookCanvasView: PKCanvasView {
     /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
     private let events = CanvasEvents()
     private let hold = PencilHoldRecognizer(target: nil, action: nil)
+    private var swipes: [UISwipeGestureRecognizer] = []
+    private let simultaneous = SimultaneousGestures()
 
     /// The shape found when the Pencil was held, the point that stays put and where the tip was.
     private var snapped: (shape: InkShape, anchor: CGPoint, tip: CGPoint)?
@@ -212,10 +243,33 @@ final class NotebookCanvasView: PKCanvasView {
         delegate = events
         toolPicker.addObserver(self)
         hold.onBegin = { [weak self] in self?.strokeBegan() }
-        hold.onHold = { [weak self] points in self?.snap(points) ?? false }
-        hold.onMove = { [weak self] point in self?.drag(to: point) }
+        hold.onHold = { [weak self] points in
+            guard let self else { return false }
+            return self.snap(points.map(self.drawingPoint))
+        }
+        hold.onMove = { [weak self] point in
+            guard let self else { return }
+            self.drag(to: self.drawingPoint(point))
+        }
         hold.onEnd = { [weak self] lifted in self?.strokeEnded(lifted: lifted) }
         addGestureRecognizer(hold)
+
+        minimumZoomScale = 1
+        maximumZoomScale = 4
+        bouncesZoom = true
+        // A finger swiped sideways undoes (left) or redoes (right); scrolling up and down still works.
+        for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
+            let swipe = UISwipeGestureRecognizer(target: self, action: #selector(swiped(_:)))
+            swipe.direction = direction
+            swipe.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+            swipe.delegate = simultaneous
+            addGestureRecognizer(swipe)
+            swipes.append(swipe)
+        }
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(doubleTapped))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+        addGestureRecognizer(doubleTap)
     }
 
     required init?(coder: NSCoder) {
@@ -229,12 +283,48 @@ final class NotebookCanvasView: PKCanvasView {
         becomeFirstResponder()
     }
 
-    /// There is always a screen of paper below the last stroke.
+    /// There is always a screen of paper below the last stroke. The page is as wide as the
+    /// notebook at 1x; the content size is that page at the current zoom.
     func fitContent() {
         let inkBottom = drawing.strokes.isEmpty ? 0 : drawing.bounds.maxY
         let height = max(bounds.height, inkBottom + bounds.height / 2)
-        let size = CGSize(width: bounds.width, height: height)
+        let size = CGSize(width: bounds.width * zoomScale, height: height * zoomScale)
         if contentSize != size { contentSize = size }
+    }
+
+    /// Shows a page at 1x: the zoom is not kept from one page to the next.
+    func resetZoom() {
+        setZoomScale(1, animated: false)
+    }
+
+    /// From the canvas' content coordinates, which grow with the zoom, to the drawing's.
+    private func drawingPoint(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x / zoomScale, y: point.y / zoomScale)
+    }
+
+    fileprivate func scrolled() {
+        onScroll?(contentOffset, zoomScale)
+    }
+
+    fileprivate func zoomed() {
+        // Zoomed in, a finger moves the page sideways instead of undoing.
+        swipes.forEach { $0.isEnabled = zoomScale <= 1.01 }
+        onScroll?(contentOffset, zoomScale)
+    }
+
+    @objc private func swiped(_ swipe: UISwipeGestureRecognizer) {
+        guard let undoManager else { return }
+        if swipe.direction == .left, undoManager.canUndo {
+            undoManager.undo()
+            onSwipeAction?("Annulla")
+        } else if swipe.direction == .right, undoManager.canRedo {
+            undoManager.redo()
+            onSwipeAction?("Ripristina")
+        }
+    }
+
+    @objc private func doubleTapped() {
+        setZoomScale(1, animated: true)
     }
 
     fileprivate func drawingDidChange() {
@@ -310,10 +400,27 @@ final class NotebookCanvasView: PKCanvasView {
             PKStrokePoint(location: location, timeOffset: TimeInterval(i) * 0.005, size: sample.size,
                           opacity: sample.opacity, force: sample.force, azimuth: sample.azimuth, altitude: sample.altitude)
         }
+        let shapeStroke = PKStroke(ink: stroke.ink,
+                                   path: PKStrokePath(controlPoints: controls, creationDate: stroke.path.creationDate))
+        // As in GoodNotes, one Annulla takes the whole shape away: PencilKit's own step for the
+        // hand-drawn stroke is undone first, and the shape is added as a single step instead.
+        if let undoManager, undoManager.canUndo {
+            isReplacing = true
+            undoManager.undo()
+            isReplacing = false
+            if drawing.strokes.count == strokesAtStart {
+                var updated = drawing
+                updated.strokes.append(shapeStroke)
+                setDrawingUndoably(updated)
+                return
+            }
+            // That step was something else: put it back and swap the stroke in place.
+            isReplacing = true
+            undoManager.redo()
+            isReplacing = false
+        }
         var updated = drawing
-        updated.strokes[updated.strokes.count - 1] = PKStroke(ink: stroke.ink,
-                                                              path: PKStrokePath(controlPoints: controls,
-                                                                                 creationDate: stroke.path.creationDate))
+        updated.strokes[updated.strokes.count - 1] = shapeStroke
         setDrawingUndoably(updated)
     }
 
@@ -336,7 +443,23 @@ private final class CanvasEvents: NSObject, PKCanvasViewDelegate {
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        canvas?.onScroll?(scrollView.contentOffset)
+        canvas?.scrolled()
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        canvas?.zoomed()
+    }
+
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+        canvas?.fitContent()
+    }
+}
+
+/// Lets the undo swipes work alongside the canvas' own scrolling.
+private final class SimultaneousGestures: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
     }
 }
 
@@ -437,11 +560,18 @@ private final class PaperView: UIView {
         didSet { setNeedsDisplay() }
     }
 
-    var scrollOffset: CGPoint = .zero {
-        didSet { setNeedsDisplay() }
-    }
+    private var scrollOffset: CGPoint = .zero
+    private var zoom: CGFloat = 1
 
     private let step: CGFloat = 28
+
+    /// Where the canvas is scrolled to and how far it is zoomed, so the lines stay under the ink.
+    func show(offset: CGPoint, zoom: CGFloat) {
+        guard offset != scrollOffset || zoom != self.zoom else { return }
+        scrollOffset = offset
+        self.zoom = zoom
+        setNeedsDisplay()
+    }
 
     init() {
         super.init(frame: .zero)
@@ -456,10 +586,13 @@ private final class PaperView: UIView {
 
     override func draw(_ rect: CGRect) {
         guard style != .blank, let context = UIGraphicsGetCurrentContext() else { return }
-        let page = rect.offsetBy(dx: scrollOffset.x, dy: scrollOffset.y)
+        // The visible part of the page, in the drawing's own coordinates.
+        let page = CGRect(x: (rect.minX + scrollOffset.x) / zoom, y: (rect.minY + scrollOffset.y) / zoom,
+                          width: rect.width / zoom, height: rect.height / zoom)
         context.translateBy(x: -scrollOffset.x, y: -scrollOffset.y)
+        context.scaleBy(x: zoom, y: zoom)
         context.setStrokeColor(UIColor.systemGray4.cgColor)
-        context.setLineWidth(0.5)
+        context.setLineWidth(0.5 / zoom)
         var y = floor(page.minY / step) * step
         while y <= page.maxY {
             context.move(to: CGPoint(x: page.minX, y: y))
