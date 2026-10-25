@@ -120,6 +120,7 @@ struct NotebookCanvas: UIViewRepresentable {
         if view.canvas.appliedTools?.state != tools.state || view.canvas.appliedTools?.ruler != tools.isRulerActive {
             view.canvas.tool = tools.pkTool
             view.canvas.isRulerActive = tools.isRulerActive
+            view.canvas.usesLasso = tools.state.current == .lasso
             view.canvas.appliedTools = (tools.state, tools.isRulerActive)
         }
     }
@@ -141,6 +142,8 @@ final class NotebookSheetView: UIView {
     private var previewWidth: CGFloat = 1
     /// "Annulla" or "Ripristina", shown for a moment after a swipe.
     private let toast = UILabel()
+    /// The lasso's loop, box and menu, drawn over the canvas.
+    private var lasso: LassoEditor!
 
     var paper: PaperStyle = .grid {
         didSet { paperView.style = paper }
@@ -163,9 +166,15 @@ final class NotebookSheetView: UIView {
         toast.clipsToBounds = true
         toast.alpha = 0
         addSubview(toast)
+        lasso = LassoEditor(canvas: canvas, host: self)
+        #if DEBUG
+        KeyboardProbe.start()
+        #endif
+        canvas.lasso = lasso
         canvas.onScroll = { [weak self] offset, zoom in
             self?.paperView.show(offset: offset, zoom: zoom)
             self?.drawPreview()
+            self?.lasso.redraw()
         }
         canvas.onSwipeAction = { [weak self] name in self?.showToast(name) }
         canvas.onShapePreview = { [weak self] shape, color, width in
@@ -183,6 +192,7 @@ final class NotebookSheetView: UIView {
         canvas.frame = bounds
         preview.frame = bounds
         canvas.fitContent()
+        lasso.redraw()
     }
 
     private func showPreview(_ shape: InkShape?, color: UIColor, width: CGFloat) {
@@ -240,6 +250,16 @@ final class NotebookCanvasView: PKCanvasView {
 
     /// What the tool bar last set, so the tool is only replaced when the choice changes.
     var appliedTools: (state: NotebookToolState, ruler: Bool)?
+    /// The notebook's own lasso, which takes the Pencil instead of PencilKit while it is in hand.
+    weak var lasso: LassoEditor?
+    var usesLasso = false {
+        didSet {
+            guard usesLasso != oldValue else { return }
+            drawingGestureRecognizer.isEnabled = !usesLasso
+            hold.isEnabled = !usesLasso
+            lasso?.isActive = usesLasso
+        }
+    }
     /// Never the canvas itself: a canvas that is its own delegate also answers
     /// PencilKit's private delegate calls, and calls itself forever when a stroke begins.
     private let events = CanvasEvents()
@@ -323,8 +343,17 @@ final class NotebookCanvasView: PKCanvasView {
         setZoomScale(1, animated: false)
     }
 
+    /// A touch the lasso has taken neither scrolls the page nor counts as an undo swipe.
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if lasso?.holdsTouch == true,
+           gestureRecognizer === panGestureRecognizer || swipes.contains(where: { $0 === gestureRecognizer }) {
+            return false
+        }
+        return super.gestureRecognizerShouldBegin(gestureRecognizer)
+    }
+
     /// From the canvas' content coordinates, which grow with the zoom, to the drawing's.
-    private func drawingPoint(_ point: CGPoint) -> CGPoint {
+    func drawingPoint(_ point: CGPoint) -> CGPoint {
         CGPoint(x: point.x / zoomScale, y: point.y / zoomScale)
     }
 
@@ -357,6 +386,7 @@ final class NotebookCanvasView: PKCanvasView {
         // Grows after the current callback, not while PencilKit is still handling the stroke.
         DispatchQueue.main.async { [weak self] in self?.fitContent() }
         notebook?.drawingDidChange()
+        lasso?.drawingChanged()
         if !isReplacing, liftedWithShape { replaceStrokeIfAdded() }
     }
 
@@ -450,9 +480,10 @@ final class NotebookCanvasView: PKCanvasView {
         setDrawingUndoably(updated)
     }
 
-    /// One assignment, recorded so that Annulla brings back the hand-drawn stroke and Ripeti the shape.
-    private func setDrawingUndoably(_ newDrawing: PKDrawing) {
-        let previous = drawing
+    /// One assignment, recorded so that Annulla brings back the drawing before it, or `previous`
+    /// when given, and Ripristina this one again.
+    func setDrawingUndoably(_ newDrawing: PKDrawing, undoingTo previous: PKDrawing? = nil) {
+        let previous = previous ?? drawing
         undoManager?.registerUndo(withTarget: self) { canvas in canvas.setDrawingUndoably(previous) }
         isReplacing = true
         drawing = newDrawing
