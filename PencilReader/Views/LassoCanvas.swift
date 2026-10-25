@@ -1,3 +1,4 @@
+import ReaderCore
 import SwiftUI
 import UIKit
 
@@ -5,7 +6,7 @@ import UIKit
 /// Finger touches never draw (unless enabled for the simulator): a tap
 /// closes the panel, a horizontal swipe turns the page, a swipe down exits,
 /// a pinch or a double tap zooms. While zoomed, dragging moves the page
-/// instead of swiping.
+/// instead of swiping. In study mode the Pencil marks the page instead; fingers work the same.
 struct LassoCanvas: UIViewRepresentable {
     var allowsFinger: Bool
     var isZoomed: Bool
@@ -18,6 +19,8 @@ struct LassoCanvas: UIViewRepresentable {
     /// Incremental translation.
     var onPan: (CGSize) -> Void
     var onDoubleTap: (CGPoint) -> Void
+    /// Set while study mode is on, with the page shown and where its image is.
+    var study: (model: StudyModel, page: Int, frame: CGRect, text: PageText?)?
 
     func makeUIView(context: Context) -> LassoCanvasView { LassoCanvasView() }
 
@@ -31,6 +34,15 @@ struct LassoCanvas: UIViewRepresentable {
         view.onZoomEnded = onZoomEnded
         view.onPan = onPan
         view.onDoubleTap = onDoubleTap
+        if let study {
+            view.startStudying(study.model).update(page: study.page, frame: study.frame, text: study.text)
+        } else {
+            view.stopStudying()
+        }
+    }
+
+    static func dismantleUIView(_ view: LassoCanvasView, coordinator: Void) {
+        view.stopStudying()
     }
 }
 
@@ -54,6 +66,9 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     private let strokeLayer = CAShapeLayer()
     private var swipes: [UISwipeGestureRecognizer] = []
     private let pan = UIPanGestureRecognizer()
+    /// While studying, the Pencil draws on this canvas instead of lassoing. It is a subview,
+    /// so the finger gestures of this view still turn, zoom and move the page.
+    private var studyCanvas: StudyCanvasView?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -112,8 +127,32 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    func startStudying(_ study: StudyModel) -> StudyCanvasView {
+        if let studyCanvas { return studyCanvas }
+        let canvas = StudyCanvasView(study: study)
+        canvas.frame = bounds
+        addSubview(canvas)
+        studyCanvas = canvas
+        return canvas
+    }
+
+    func stopStudying() {
+        guard let studyCanvas else { return }
+        studyCanvas.study.flush()
+        if studyCanvas.study.canvas === studyCanvas { studyCanvas.study.canvas = nil }
+        studyCanvas.removeFromSuperview()
+        self.studyCanvas = nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let studyCanvas, studyCanvas.frame != bounds else { return }
+        studyCanvas.frame = bounds
+        studyCanvas.reposition()
+    }
+
     private func draws(_ touch: UITouch) -> Bool {
-        touch.type == .pencil || (allowsFinger && touch.type == .direct)
+        studyCanvas == nil && (touch.type == .pencil || (allowsFinger && touch.type == .direct))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

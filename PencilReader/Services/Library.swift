@@ -227,6 +227,7 @@ final class Library {
     func delete(_ document: LibraryDocument) {
         try? fileManager.removeItem(at: folder(of: document))
         NoteStore.deleteNotes(of: document.id)
+        AnnotationStore.deleteMarks(of: document.id)
         PageThumbnails.deleteCache(of: document.id)
         documents.removeAll { $0.id == document.id }
     }

@@ -9,6 +9,8 @@ struct PageGridView: View {
     let thumbnails: PageThumbnails
     /// Pages that have a handwritten note, marked on their thumbnail.
     var notedPages: Set<Int> = []
+    /// Pages with study marks, marked differently from the notes.
+    var markedPages: Set<Int> = []
     let select: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -26,7 +28,8 @@ struct PageGridView: View {
                                 dismiss()
                             } label: {
                                 PageThumbnailCell(index: index, isCurrent: index == currentPage,
-                                                  hasNote: notedPages.contains(index), thumbnails: thumbnails)
+                                                  hasNote: notedPages.contains(index),
+                                                  hasMarks: markedPages.contains(index), thumbnails: thumbnails)
                             }
                             .buttonStyle(.plain)
                             .id(index)
@@ -51,6 +54,7 @@ private struct PageThumbnailCell: View {
     let index: Int
     let isCurrent: Bool
     let hasNote: Bool
+    let hasMarks: Bool
     let thumbnails: PageThumbnails
 
     @State private var image: UIImage?
@@ -78,6 +82,17 @@ private struct PageThumbnailCell: View {
                         .foregroundStyle(.orange, .white)
                         .padding(6)
                         .accessibilityLabel("Ha una nota")
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if hasMarks {
+                    Image(systemName: "highlighter")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.black)
+                        .frame(width: 26, height: 26)
+                        .background(Color(uiColor: StudyColor.key.uiColor), in: Circle())
+                        .padding(6)
+                        .accessibilityLabel("Ha segni di studio")
                 }
             }
             .shadow(color: .black.opacity(0.15), radius: 3, y: 1)

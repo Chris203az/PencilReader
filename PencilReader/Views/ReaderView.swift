@@ -20,6 +20,8 @@ struct ReaderView: View {
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
     @State private var showNotes = false
+    /// Highlighter, underline and margin notes over the page, in place of the lasso.
+    @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
     @Environment(\.scenePhase) private var scenePhase
 
@@ -28,7 +30,7 @@ struct ReaderView: View {
             if let model {
                 GeometryReader { geo in
                     HStack(spacing: 0) {
-                        PageView(model: model, onExit: { dismiss() })
+                        PageView(model: model, study: study, onExit: { dismiss() })
                             .frame(width: pageWidth(in: geo.size.width))
                         if showNotebook, let notebook {
                             NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
@@ -48,12 +50,16 @@ struct ReaderView: View {
                 }
                 .onChange(of: model.pageIndex) { _, page in notebook?.show(page) }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase != .active { notebook?.flush() }
+                    if phase != .active {
+                        notebook?.flush()
+                        study?.flush()
+                    }
                 }
                 .sheet(isPresented: $showPages) {
                     if let thumbnails {
                         PageGridView(pageCount: model.pageCount, currentPage: model.pageIndex,
                                      thumbnails: thumbnails, notedPages: notebook?.notedPages ?? [],
+                                     markedPages: study?.markedPages ?? [],
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
@@ -64,6 +70,11 @@ struct ReaderView: View {
                         showNotebook = true
                     }
                     .presentationSizing(.page)
+                }
+                .sheet(isPresented: Binding(get: { study?.showsGuide == true },
+                                            set: { study?.showsGuide = $0 })) {
+                    StudyGuideView()
+                        .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showSearch) {
                     if let search {
@@ -102,6 +113,7 @@ struct ReaderView: View {
                 let reader = ReaderModel(document: document, library: library, wordList: wordList)
                 model = reader
                 notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
+                study = StudyModel(bookID: document.id)
                 thumbnails = PageThumbnails(
                     bookID: document.id, pageCount: document.pageCount,
                     pdfURL: document.kind == .pdf ? library.pdfURL(of: document) : nil,
@@ -158,6 +170,21 @@ struct ReaderView: View {
         }
     }
 
+    /// Turns study mode on and off: while on, the Pencil marks the page instead of translating.
+    @ViewBuilder private func studyButton(_ study: StudyModel, model: ReaderModel) -> some View {
+        let toggle = {
+            model.clearSelection()
+            study.toggle()
+        }
+        if study.isActive {
+            Button("Esci dalla modalità studio", systemImage: "highlighter", action: toggle)
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+        } else {
+            Button("Modalità studio", systemImage: "highlighter", action: toggle)
+        }
+    }
+
     @ToolbarContentBuilder private func toolbar(_ model: ReaderModel) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button("Pagina precedente", systemImage: "chevron.left") { model.previousPage() }
@@ -174,6 +201,11 @@ struct ReaderView: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
+                    if study?.markedPages.contains(model.pageIndex) == true {
+                        Image(systemName: "highlighter")
+                            .font(.caption)
+                            .foregroundStyle(Color(uiColor: StudyColor.key.uiColor))
+                    }
                 }
             }
             .accessibilityLabel("Tutte le pagine")
@@ -181,6 +213,7 @@ struct ReaderView: View {
                 .disabled(model.pageIndex + 1 >= model.pageCount)
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
+            if let study { studyButton(study, model: model) }
             recognitionButton(model.document)
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
