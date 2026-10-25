@@ -116,10 +116,12 @@ struct ShapeRecognizerTests {
     }
 
     @Test func pentagonIsAPolygonNotACircle() {
-        let pentagon = (0..<5).map { i in
-            CGPoint(x: 100 + 100 * cos(2 * .pi * CGFloat(i) / 5), y: 100 + 100 * sin(2 * .pi * CGFloat(i) / 5))
+        let pentagon: [CGPoint] = (0..<5).map { i in
+            let angle: CGFloat = 2 * CGFloat.pi * CGFloat(i) / 5
+            return CGPoint(x: 100 + 100 * cos(angle), y: 100 + 100 * sin(angle))
         }
-        #expect(corners(of: ShapeRecognizer.recognize(wobbly(outline(pentagon, start: 0.5))))?.count == 5)
+        let found = corners(of: ShapeRecognizer.recognize(wobbly(outline(pentagon, start: 0.5))))
+        #expect(found?.count == 5)
     }
 
     // MARK: Ellipses
