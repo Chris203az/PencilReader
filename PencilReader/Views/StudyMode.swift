@@ -53,7 +53,8 @@ enum StudyTool: Equatable {
     /// Widths are in page units: the page is `StudyCanvasView.pageWidth` wide.
     var pkTool: PKTool {
         switch self {
-        case .highlighter(let color): PKInkingTool(.marker, color: color.uiColor.withAlphaComponent(Self.highlightAlpha), width: 22)
+        case .highlighter(let color): PKInkingTool(.marker, color: color.uiColor.withAlphaComponent(Self.highlightAlpha),
+                                                   width: StudyCanvasView.highlightWidth)
         case .underline: PKInkingTool(.pen, color: Self.underlineColor, width: 2.5)
         case .pen: PKInkingTool(.pen, color: Self.penColor, width: 2.2)
         case .eraser: PKEraserTool(.vector)
@@ -167,6 +168,8 @@ final class StudyCanvasView: PKCanvasView {
     private var recordedThisStroke = false
     private var snappedThisStroke = false
     private var isSettingDrawing = false
+    private var isUsingTool = false
+    private var waitingForIdle: [() -> Void] = []
 
     private var pageHeight: CGFloat {
         guard pageFrame.width > 0 else { return Self.pageWidth }
@@ -274,7 +277,25 @@ final class StudyCanvasView: PKCanvasView {
         isSettingDrawing = false
     }
 
+    /// Runs `work` now, or as soon as the stroke in progress ends: giving the canvas a new drawing
+    /// while the Pencil is writing cuts the stroke. Every change made by code goes through here.
+    private func whenIdle(_ work: @escaping () -> Void) {
+        if isUsingTool { waitingForIdle.append(work) } else { work() }
+    }
+
+    fileprivate func toolEnded() {
+        isUsingTool = false
+        // After PencilKit has finished with the stroke.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isUsingTool else { return }
+            let work = self.waitingForIdle
+            self.waitingForIdle = []
+            work.forEach { $0() }
+        }
+    }
+
     fileprivate func toolBegan() {
+        isUsingTool = true
         atStart = drawing
         recordedThisStroke = false
         snappedThisStroke = false
@@ -291,54 +312,86 @@ final class StudyCanvasView: PKCanvasView {
         }
         if !snappedThisStroke, let atStart, drawing.strokes.count == atStart.strokes.count + 1 {
             snappedThisStroke = true
-            let tool = study.tool
-            // Outside PencilKit's callback, which must not see the drawing change under it.
-            DispatchQueue.main.async { [weak self] in self?.snapLastStroke(made: tool) }
+            let tool = study.tool, seed = drawing.strokes[atStart.strokes.count].randomSeed
+            // Outside PencilKit's callback, which must not see the drawing change under it,
+            // and never while the next stroke is being written.
+            DispatchQueue.main.async { [weak self] in self?.whenIdle { self?.snapStroke(seed: seed, made: tool) } }
         }
         study.drawingDidChange()
     }
 
     // MARK: Snapping
 
-    /// A highlight becomes bands over the lines of text it went over; an underline becomes straight.
-    private func snapLastStroke(made tool: StudyTool) {
-        guard let stroke = drawing.strokes.last, !stroke.path.isEmpty else { return }
+    /// A highlight becomes one straight band over the line of text it was meant for, joined with
+    /// the highlights of its color already there; an underline becomes straight.
+    /// The stroke is found by its seed, as the drawing may have changed since it was added.
+    private func snapStroke(seed: UInt32, made tool: StudyTool) {
+        guard let index = drawing.strokes.lastIndex(where: { $0.randomSeed == seed }) else { return }
+        let stroke = drawing.strokes[index]
+        guard !stroke.path.isEmpty else { return }
         let height = pageHeight
         let points = stroke.path.map { point -> CGPoint in
             let p = point.location.applying(stroke.transform)
             return CGPoint(x: p.x / Self.pageWidth, y: p.y / height)
         }
         let sample = stroke.path[stroke.path.count / 2]
-        let replacement: [PKStroke]
+        var updated = drawing
         switch tool {
         case .highlighter:
-            guard let pageText else { return }
-            let rects = StudyMarks.highlightRects(for: points, in: pageText)
-            guard !rects.isEmpty else { return }
-            replacement = rects.map { rect in
-                let band = CGRect(x: rect.minX * Self.pageWidth, y: rect.minY * height,
-                                  width: rect.width * Self.pageWidth, height: rect.height * height)
-                // A bit taller than the letters; the round ends stay inside the words.
-                let size = band.height * 1.15
-                let inset = min(size * 0.35, band.width / 2)
-                return line(from: CGPoint(x: band.minX + inset, y: band.midY),
-                            to: CGPoint(x: band.maxX - inset, y: band.midY),
-                            size: CGSize(width: size, height: size), like: stroke, sample: sample)
+            guard let rect = StudyMarks.highlightBand(for: points, in: pageText,
+                                                      fallbackHeight: Self.highlightWidth / height) else { return }
+            let band = CGRect(x: rect.minX * Self.pageWidth, y: rect.minY * height,
+                              width: rect.width * Self.pageWidth, height: rect.height * height)
+            // A bit taller than the letters; the round ends stay inside the words.
+            let size = band.height * 1.15
+            let inset = min(size * 0.35, band.width / 2)
+            let segment = StudyMarks.Segment(y: band.midY, minX: band.minX + inset, maxX: band.maxX - inset, height: size)
+            // The straight highlights of the same color: overlapping ones become a single stroke,
+            // so a second pass leaves the color as the first one did.
+            let others = updated.strokes.indices.filter { $0 != index }.compactMap { i in
+                Self.segment(of: updated.strokes[i], colored: stroke.ink).map { (index: i, segment: $0) }
             }
+            let merged = StudyMarks.merge(segment, with: others.map(\.segment))
+            let removed = Set(merged.absorbed.map { others[$0].index } + [index])
+            let strokes = updated.strokes
+            updated.strokes = strokes.indices.filter { !removed.contains($0) }.map { strokes[$0] }
+            let s = merged.segment
+            updated.strokes.append(line(from: CGPoint(x: s.minX, y: s.y), to: CGPoint(x: s.maxX, y: s.y),
+                                        size: CGSize(width: s.height, height: s.height), like: stroke, sample: sample))
         case .underline:
             guard let segment = StudyMarks.underline(for: points, in: pageText) else { return }
-            replacement = [line(from: CGPoint(x: segment.start.x * Self.pageWidth, y: segment.start.y * height),
-                                to: CGPoint(x: segment.end.x * Self.pageWidth, y: segment.end.y * height),
-                                size: sample.size, like: stroke, sample: sample)]
+            updated.strokes[index] = line(from: CGPoint(x: segment.start.x * Self.pageWidth, y: segment.start.y * height),
+                                          to: CGPoint(x: segment.end.x * Self.pageWidth, y: segment.end.y * height),
+                                          size: sample.size, like: stroke, sample: sample)
         case .pen, .eraser:
             return
         }
-        var updated = drawing
-        updated.strokes.removeLast()
-        updated.strokes.append(contentsOf: replacement)
         // The history already holds the page before the hand-drawn stroke: one Annulla takes all of it away.
         setDrawing(updated)
         study.drawingDidChange()
+    }
+
+    /// The highlighter's thickness, in page units.
+    static let highlightWidth: CGFloat = 22
+
+    /// A straight highlight of `ink`'s color, as a segment in page units; nil for anything else,
+    /// such as a hand-drawn highlight saved before they were straightened.
+    private static func segment(of stroke: PKStroke, colored ink: PKInk) -> StudyMarks.Segment? {
+        guard stroke.ink.inkType == .marker, stroke.ink.inkType == ink.inkType, sameColor(stroke.ink.color, ink.color),
+              let size = stroke.path.first?.size.height else { return nil }
+        let points = stroke.path.map { $0.location.applying(stroke.transform) }
+        let ys = points.map(\.y), xs = points.map(\.x)
+        guard let minY = ys.min(), let maxY = ys.max(), maxY - minY < 0.5,
+              let minX = xs.min(), let maxX = xs.max() else { return nil }
+        return StudyMarks.Segment(y: (minY + maxY) / 2, minX: minX, maxX: maxX, height: size * stroke.transform.d)
+    }
+
+    private static func sameColor(_ a: UIColor, _ b: UIColor) -> Bool {
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return abs(ar - br) < 0.02 && abs(ag - bg) < 0.02 && abs(ab - bb) < 0.02
     }
 
     private func line(from start: CGPoint, to end: CGPoint, size: CGSize, like stroke: PKStroke,
@@ -350,7 +403,8 @@ final class StudyCanvasView: PKCanvasView {
                                  timeOffset: TimeInterval(i) * 0.005, size: size, opacity: sample.opacity,
                                  force: sample.force, azimuth: sample.azimuth, altitude: sample.altitude)
         }
-        return PKStroke(ink: stroke.ink, path: PKStrokePath(controlPoints: controls, creationDate: stroke.path.creationDate))
+        return PKStroke(ink: stroke.ink, path: PKStrokePath(controlPoints: controls, creationDate: stroke.path.creationDate),
+                        transform: .identity, mask: nil, randomSeed: stroke.randomSeed)
     }
 }
 
@@ -359,6 +413,10 @@ private final class StudyCanvasEvents: NSObject, PKCanvasViewDelegate {
 
     func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
         canvas?.toolBegan()
+    }
+
+    func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+        canvas?.toolEnded()
     }
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -493,7 +551,7 @@ struct StudyGuideView: View {
                 Section("Come si usa") {
                     Label("La Pencil segna; il cerchio per tradurre è spento finché la modalità è attiva.", systemImage: "applepencil")
                     Label("Con il dito sfogli, zoomi e giri pagina come sempre.", systemImage: "hand.point.up.left")
-                    Label("Sulle pagine col testo riconosciuto l'evidenziatore si aggancia alle righe.", systemImage: "text.viewfinder")
+                    Label("L'evidenziatore si aggancia a una riga alla volta; ripassare con lo stesso colore non lo scurisce.", systemImage: "text.viewfinder")
                     Label("Le pagine segnate hanno l'evidenziatore nella griglia delle pagine.", systemImage: "square.grid.2x2")
                 }
             }
