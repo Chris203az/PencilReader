@@ -73,6 +73,20 @@ public enum ShapeRecognizer {
         }
     }
 
+    /// True when the pen rests at the end of the stroke: the last points stay within `tolerance`
+    /// of the final point for at least `minimum` seconds. Only a held stroke is straightened,
+    /// so letters and fraction bars written in motion are left alone.
+    public static func endsWithHold(_ points: [CGPoint], times: [TimeInterval],
+                                    minimum: TimeInterval = 0.4, tolerance: CGFloat = 3) -> Bool {
+        guard points.count == times.count, let last = points.last, let end = times.last else { return false }
+        var start = end
+        for (point, time) in zip(points, times).reversed() {
+            guard distance(point, last) <= tolerance else { break }
+            start = time
+        }
+        return end - start >= minimum
+    }
+
     // MARK: Helpers
 
     /// True when every point sits close to the ellipse inscribed in the box.

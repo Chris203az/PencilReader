@@ -113,7 +113,9 @@ final class NotebookModel {
               let template = stroke.path.first else { return }
 
         let points = stroke.path.map { $0.location.applying(stroke.transform) }
-        guard let shape = ShapeRecognizer.recognize(points) else { return }
+        // Only a stroke the pen holds at its end becomes a shape; one written in motion stays as it is.
+        guard ShapeRecognizer.endsWithHold(points, times: stroke.path.map(\.timeOffset)),
+              let shape = ShapeRecognizer.recognize(points) else { return }
 
         // Same ink, color and pressure as the stroke it replaces.
         let controls = shape.outline.enumerated().map { index, location in
@@ -124,7 +126,17 @@ final class NotebookModel {
         strokes[strokes.count - 1] = PKStroke(ink: stroke.ink,
                                               path: PKStrokePath(controlPoints: controls,
                                                                  creationDate: stroke.path.creationDate))
-        canvas.drawing = PKDrawing(strokes: strokes)
+        swapDrawing(to: PKDrawing(strokes: strokes))
+    }
+
+    /// Shows another drawing and records the change, so Annulla brings the previous one back.
+    private func swapDrawing(to drawing: PKDrawing) {
+        guard let canvas else { return }
+        let previous = canvas.drawing
+        canvas.drawing = drawing
+        canvas.undoManager?.registerUndo(withTarget: canvas) { [weak self] _ in
+            self?.swapDrawing(to: previous)
+        }
     }
 
     private func loadDrawing() {
