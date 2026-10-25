@@ -156,8 +156,68 @@ struct ShapeRecognizerTests {
         #expect(ShapeRecognizer.recognize(zero) == nil)
         let zigzag = (0..<80).map { CGPoint(x: CGFloat($0) * 4, y: CGFloat($0 % 10) * 6) }
         #expect(ShapeRecognizer.recognize(zigzag) == nil)
-        let arc = round(center: CGPoint(x: 100, y: 100), rx: 100, ry: 100, upTo: .pi)
-        #expect(ShapeRecognizer.recognize(arc) == nil)
+    }
+
+    @Test func digitsAtShapeSizeStayAsTheyAre() {
+        // A 2: a hook, then a sharp corner into the base.
+        let hook = round(center: CGPoint(x: 50, y: 40), rx: 30, ry: 30, turn: -.pi, upTo: 1.25 * .pi)
+        let two = hook + (1...20).map { i in CGPoint(x: hook.last!.x + (20 - hook.last!.x) * CGFloat(i) / 20,
+                                                   y: hook.last!.y + (120 - hook.last!.y) * CGFloat(i) / 20) }
+            + (1...20).map { CGPoint(x: 20 + CGFloat($0) * 4, y: 120) }
+        #expect(ShapeRecognizer.recognize(two) == nil)
+        // A 7: across, then sharply down.
+        let seven = (0...20).map { CGPoint(x: CGFloat($0) * 5, y: 0) } + (1...30).map { CGPoint(x: 100 - CGFloat($0) * 1.5, y: CGFloat($0) * 4) }
+        #expect(ShapeRecognizer.recognize(seven) == nil)
+        // A 3: two bumps meeting in a point.
+        let top = round(center: CGPoint(x: 50, y: 30), rx: 30, ry: 30, turn: -.pi / 2, upTo: .pi)
+        let bottom = round(center: CGPoint(x: 50, y: 90), rx: 30, ry: 30, turn: -.pi / 2, upTo: .pi)
+        #expect(ShapeRecognizer.recognize(top + bottom) == nil)
+    }
+
+    // MARK: Arcs and curves
+
+    @Test func halfCircleBecomesAnArc() {
+        let drawn = wobbly(round(center: CGPoint(x: 100, y: 100), rx: 100, ry: 100, upTo: .pi), by: 1.5)
+        guard case .arc(let start, let through, let end) = ShapeRecognizer.recognize(drawn) else {
+            Issue.record("not an arc")
+            return
+        }
+        #expect(near(start, CGPoint(x: 200, y: 100), within: 6))
+        #expect(near(end, CGPoint(x: 0, y: 100), within: 6))
+        #expect(near(through, CGPoint(x: 100, y: 200), within: 6))
+    }
+
+    @Test func arcOutlineFollowsItsCircle() {
+        let arc = InkShape.arc(start: CGPoint(x: 100, y: 0), through: CGPoint(x: 0, y: 100), end: CGPoint(x: -100, y: 0))
+        let points = arc.outline()
+        #expect(points.allSatisfy { abs(hypot($0.x, $0.y) - 100) < 0.01 })
+        // Through the bottom, not the top.
+        #expect(points.allSatisfy { $0.y >= -0.01 })
+        #expect(near(points.first!, CGPoint(x: 100, y: 0), within: 0.01) && near(points.last!, CGPoint(x: -100, y: 0), within: 0.01))
+    }
+
+    @Test func waveBecomesASmoothCurve() {
+        let wave = (0...80).map { CGPoint(x: CGFloat($0) * 4, y: 100 + 40 * sin(CGFloat($0) * 4 / 320 * 2 * .pi)) }
+        guard case .curve(let controls) = ShapeRecognizer.recognize(wave) else {
+            Issue.record("not a curve")
+            return
+        }
+        #expect((4...8).contains(controls.count))
+        #expect(near(controls.first!, wave.first!, within: 0.01) && near(controls.last!, wave.last!, within: 0.01))
+        let curve = InkShape.curve(controls).outline()
+        let worst = wave.map { p in curve.map { hypot($0.x - p.x, $0.y - p.y) }.min()! }.max()!
+        #expect(worst < 8)
+    }
+
+    @Test func shapesSurviveSaving() throws {
+        let shapes: [InkShape] = [
+            .line(.zero, CGPoint(x: 1, y: 2)),
+            .arc(start: .zero, through: CGPoint(x: 5, y: 5), end: CGPoint(x: 10, y: 0)),
+            .curve([.zero, CGPoint(x: 3, y: 4), CGPoint(x: 9, y: 1), CGPoint(x: 12, y: 6)]),
+            .ellipse(center: CGPoint(x: 4, y: 4), radii: CGSize(width: 3, height: 2), angle: 0.3)
+        ]
+        let data = try JSONEncoder().encode(shapes)
+        #expect(try JSONDecoder().decode([InkShape].self, from: data) == shapes)
     }
 
     // MARK: Dragging after the snap

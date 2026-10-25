@@ -56,7 +56,10 @@ final class NotebookTools {
         case .eraser:
             return PKEraserTool(state.eraserIsPixel ? .bitmap : .vector)
         case .lasso:
-            return PKLassoTool()
+            // The notebook draws its own lasso (LassoEditor) and turns PencilKit's drawing off
+            // meanwhile; PencilKit's lasso, which can only move strokes, is never used.
+            let ink = state.ink(for: state.lastInking) ?? InkSetting(color: .black, width: 3)
+            return PKInkingTool(state.lastInking.inkType, color: ink.color.uiColor, width: ink.width)
         }
     }
 
