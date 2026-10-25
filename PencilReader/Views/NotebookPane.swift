@@ -70,23 +70,53 @@ struct NotebookDivider: View {
     }
 }
 
-/// Hosts the PencilKit canvas, which keeps a single drawing for the page on screen.
+/// Hosts the notebook page: the paper, then the PencilKit canvas on top of it.
 struct NotebookCanvas: UIViewRepresentable {
     let notebook: NotebookModel
 
-    func makeUIView(context: Context) -> NotebookCanvasView {
-        let view = NotebookCanvasView()
-        view.notebook = notebook
-        notebook.attach(view)
+    func makeUIView(context: Context) -> NotebookSheetView {
+        let view = NotebookSheetView()
+        view.canvas.notebook = notebook
+        notebook.attach(view.canvas)
         return view
     }
 
-    func updateUIView(_ view: NotebookCanvasView, context: Context) {
+    func updateUIView(_ view: NotebookSheetView, context: Context) {
         view.paper = notebook.paper
     }
 
-    static func dismantleUIView(_ view: NotebookCanvasView, coordinator: Void) {
-        if let notebook = view.notebook { notebook.detach(view) }
+    static func dismantleUIView(_ view: NotebookSheetView, coordinator: Void) {
+        if let notebook = view.canvas.notebook { notebook.detach(view.canvas) }
+    }
+}
+
+/// Paper and canvas are siblings. The canvas is never given extra subviews, and its
+/// view hierarchy is never changed from inside PencilKit's drawing callbacks.
+final class NotebookSheetView: UIView {
+    let canvas = NotebookCanvasView()
+    private let paperView = PaperView()
+
+    var paper: PaperStyle = .grid {
+        didSet { paperView.style = paper }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        paperView.style = paper
+        addSubview(paperView)
+        addSubview(canvas)
+        canvas.onScroll = { [weak self] offset in self?.paperView.scrollOffset = offset }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("NotebookSheetView si crea solo da codice")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        paperView.frame = bounds
+        canvas.frame = bounds
+        canvas.fitContent()
     }
 }
 
@@ -94,12 +124,14 @@ struct NotebookCanvas: UIViewRepresentable {
 /// grows downward as the writing goes further down.
 final class NotebookCanvasView: PKCanvasView, PKCanvasViewDelegate {
     weak var notebook: NotebookModel?
-    var paper: PaperStyle = .grid {
-        didSet { paperView.style = paper }
-    }
+    /// Called on every scroll, so the paper behind can move with the writing.
+    var onScroll: ((CGPoint) -> Void)?
 
-    private let paperView = PaperView()
     private let toolPicker = PKToolPicker()
+
+    override var contentOffset: CGPoint {
+        didSet { onScroll?(contentOffset) }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -107,8 +139,6 @@ final class NotebookCanvasView: PKCanvasView, PKCanvasViewDelegate {
         alwaysBounceVertical = true
         backgroundColor = .clear
         delegate = self
-        insertSubview(paperView, at: 0)
-        paperView.style = paper
     }
 
     required init?(coder: NSCoder) {
@@ -123,28 +153,30 @@ final class NotebookCanvasView: PKCanvasView, PKCanvasViewDelegate {
         becomeFirstResponder()
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        fitContent()
-    }
-
     /// There is always a screen of paper below the last stroke.
     func fitContent() {
         let inkBottom = drawing.strokes.isEmpty ? 0 : drawing.bounds.maxY
         let height = max(bounds.height, inkBottom + bounds.height / 2)
-        contentSize = CGSize(width: bounds.width, height: height)
-        paperView.frame = CGRect(origin: .zero, size: contentSize)
+        let size = CGSize(width: bounds.width, height: height)
+        if contentSize != size { contentSize = size }
     }
 
     func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-        fitContent()
+        // Grows after the current callback: resizing while PencilKit is still handling
+        // the stroke re-entered it and crashed the app.
+        DispatchQueue.main.async { [weak self] in self?.fitContent() }
         notebook?.drawingDidChange()
     }
 }
 
-/// Ruled or squared paper, drawn under the ink and scrolling with it.
+/// Ruled or squared paper. It stays still while the canvas scrolls over it and
+/// is drawn in the page's own coordinates, so the lines line up with the ink.
 private final class PaperView: UIView {
     var style: PaperStyle = .grid {
+        didSet { setNeedsDisplay() }
+    }
+
+    var scrollOffset: CGPoint = .zero {
         didSet { setNeedsDisplay() }
     }
 
@@ -163,19 +195,21 @@ private final class PaperView: UIView {
 
     override func draw(_ rect: CGRect) {
         guard style != .blank, let context = UIGraphicsGetCurrentContext() else { return }
+        let page = rect.offsetBy(dx: scrollOffset.x, dy: scrollOffset.y)
+        context.translateBy(x: -scrollOffset.x, y: -scrollOffset.y)
         context.setStrokeColor(UIColor.systemGray4.cgColor)
         context.setLineWidth(0.5)
-        var y = floor(rect.minY / step) * step
-        while y <= rect.maxY {
-            context.move(to: CGPoint(x: rect.minX, y: y))
-            context.addLine(to: CGPoint(x: rect.maxX, y: y))
+        var y = floor(page.minY / step) * step
+        while y <= page.maxY {
+            context.move(to: CGPoint(x: page.minX, y: y))
+            context.addLine(to: CGPoint(x: page.maxX, y: y))
             y += step
         }
         if style == .grid {
-            var x = floor(rect.minX / step) * step
-            while x <= rect.maxX {
-                context.move(to: CGPoint(x: x, y: rect.minY))
-                context.addLine(to: CGPoint(x: x, y: rect.maxY))
+            var x = floor(page.minX / step) * step
+            while x <= page.maxX {
+                context.move(to: CGPoint(x: x, y: page.minY))
+                context.addLine(to: CGPoint(x: x, y: page.maxY))
                 x += step
             }
         }
