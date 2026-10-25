@@ -22,3 +22,7 @@ Serve un Mac con Xcode e XcodeGen (`brew install xcodegen`). Con l'iPad collegat
 ```
 
 Con un account Apple gratuito l'app va reinstallata ogni 7 giorni.
+
+## Da sviluppare
+
+- **Riordino della scrittura nel quaderno**: raddrizza le righe scritte a mano e le mette dentro i quadretti. Tolto dall'app finché non funziona bene; il codice (HandwritingTidier, NotebookTidying) è nel ramo locale `riordino-da-sviluppare` sul Mac, non pubblicato.
