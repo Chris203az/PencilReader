@@ -1,5 +1,6 @@
 import ImageIO
 import PDFKit
+import ReaderCore
 import SwiftUI
 
 /// Thumbnails of every page, to jump quickly to one of them.
@@ -11,9 +12,16 @@ struct PageGridView: View {
     var notedPages: Set<Int> = []
     /// Pages with study marks, marked differently from the notes.
     var markedPages: Set<Int> = []
+    /// Bookmarked pages with their names, shown with a ribbon and under the thumbnail.
+    var bookmarks: [Int: String] = [:]
     let select: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var onlyBookmarks = false
+
+    private var shownPages: [Int] {
+        onlyBookmarks ? bookmarks.keys.sorted() : Array(0..<pageCount)
+    }
 
     private let columns = [GridItem(.adaptive(minimum: 130, maximum: 170), spacing: 20)]
 
@@ -21,15 +29,21 @@ struct PageGridView: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
+                    if onlyBookmarks && bookmarks.isEmpty {
+                        ContentUnavailableView("Nessun segnalibro", systemImage: "bookmark",
+                                               description: Text("Le pagine segnate col segnalibro compaiono qui."))
+                            .padding(.top, 80)
+                    }
                     LazyVGrid(columns: columns, spacing: 24) {
-                        ForEach(0..<pageCount, id: \.self) { index in
+                        ForEach(shownPages, id: \.self) { index in
                             Button {
                                 select(index)
                                 dismiss()
                             } label: {
                                 PageThumbnailCell(index: index, isCurrent: index == currentPage,
                                                   hasNote: notedPages.contains(index),
-                                                  hasMarks: markedPages.contains(index), thumbnails: thumbnails)
+                                                  hasMarks: markedPages.contains(index),
+                                                  bookmark: bookmarks[index], thumbnails: thumbnails)
                             }
                             .buttonStyle(.plain)
                             .id(index)
@@ -39,9 +53,16 @@ struct PageGridView: View {
                 }
                 .onAppear { proxy.scrollTo(currentPage, anchor: .center) }
             }
-            .navigationTitle("Pagine")
+            .navigationTitle(onlyBookmarks ? "Segnalibri" : "Pagine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Toggle(isOn: $onlyBookmarks.animation()) {
+                        Label("Solo segnalibri", systemImage: onlyBookmarks ? "bookmark.fill" : "bookmark")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    .toggleStyle(.button)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fine") { dismiss() }
                 }
@@ -55,6 +76,8 @@ private struct PageThumbnailCell: View {
     let isCurrent: Bool
     let hasNote: Bool
     let hasMarks: Bool
+    /// The bookmark's name, when the page has one.
+    var bookmark: String?
     let thumbnails: PageThumbnails
 
     @State private var image: UIImage?
@@ -95,12 +118,22 @@ private struct PageThumbnailCell: View {
                         .accessibilityLabel("Ha segni di studio")
                 }
             }
+            .overlay(alignment: .top) {
+                if bookmark != nil { BookmarkRibbon() }
+            }
             .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
 
             Text("\(index + 1)")
                 .font(.caption.weight(isCurrent ? .bold : .regular))
                 .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
                 .monospacedDigit()
+            // Only a name of its own; the default one would repeat the number.
+            if let bookmark, bookmark != Bookmark.defaultTitle(page: index) {
+                Text(bookmark)
+                    .font(.caption2)
+                    .foregroundStyle(BookmarkRibbon.color)
+                    .lineLimit(1)
+            }
         }
         .contentShape(Rectangle())
         .task(id: index) { image = await thumbnails.thumbnail(at: index) }
