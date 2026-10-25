@@ -10,7 +10,16 @@ struct NotebookPane: View {
         VStack(spacing: 0) {
             header
             Divider()
-            NotebookCanvas(notebook: notebook)
+            if notebook.isWriting {
+                NotebookCanvas(notebook: notebook)
+            } else {
+                ContentUnavailableView {
+                    Label("Nessuna nota su questa pagina", systemImage: "square.and.pencil")
+                } actions: {
+                    Button("Nuova nota") { notebook.startNote() }
+                        .buttonStyle(.borderedProminent)
+                }
+            }
         }
         .background(Color(.systemBackground))
     }
@@ -22,13 +31,16 @@ struct NotebookPane: View {
                 .monospacedDigit()
             Spacer()
             Button("Annulla", systemImage: "arrow.uturn.backward") { notebook.undo() }
+                .disabled(!notebook.isWriting)
             Button("Ripeti", systemImage: "arrow.uturn.forward") { notebook.redo() }
-            Menu("Sfondo", systemImage: "square.grid.3x3") {
+                .disabled(!notebook.isWriting)
+            Menu("Opzioni", systemImage: "slider.horizontal.3") {
                 Picker("Sfondo", selection: $notebook.paper) {
                     ForEach(PaperStyle.allCases, id: \.self) { style in
                         Text(style.label).tag(style)
                     }
                 }
+                Toggle("Raddrizza le forme", isOn: $notebook.straightensShapes)
             }
         }
         .labelStyle(.iconOnly)
@@ -38,12 +50,13 @@ struct NotebookPane: View {
     }
 }
 
-/// Draggable line between the book page and the notebook.
+/// Draggable line between the book page and the notebook. The line follows the finger;
+/// the two sides are resized once, when it is let go, so they do not shake while moving.
 struct NotebookDivider: View {
     @Binding var split: Double
     /// Width the two sides share, without the divider itself.
     let available: CGFloat
-    @State private var startSplit: Double?
+    @GestureState private var dragOffset: CGFloat = 0
 
     static let width: CGFloat = 16
 
@@ -54,15 +67,12 @@ struct NotebookDivider: View {
             .frame(width: Self.width)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
+            .offset(x: dragOffset)
             .gesture(
                 DragGesture()
-                    .onChanged { value in
-                        let start = startSplit ?? split
-                        startSplit = start
-                        split = SplitRatio.clamped(start + Double(value.translation.width / available))
-                    }
-                    .onEnded { _ in
-                        startSplit = nil
+                    .updating($dragOffset) { value, state, _ in state = value.translation.width }
+                    .onEnded { value in
+                        split = SplitRatio.clamped(split + Double(value.translation.width / available))
                         NotebookSettings.saveSplit(split)
                     }
             )

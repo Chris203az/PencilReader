@@ -19,6 +19,7 @@ struct ReaderView: View {
     /// Created with the model, so the notes of every page are known before the notebook opens.
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
+    @State private var showNotes = false
     @State private var split = NotebookSettings.split
     @Environment(\.scenePhase) private var scenePhase
 
@@ -54,6 +55,13 @@ struct ReaderView: View {
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
+                }
+                .sheet(isPresented: $showNotes) {
+                    NotesListView(bookID: document.id, pages: notebook?.notedPages.sorted() ?? []) { page in
+                        model.showPage(page)
+                        showNotebook = true
+                    }
+                    .presentationSizing(.page)
                 }
                 .sheet(isPresented: $showSearch) {
                     if let search {
@@ -163,6 +171,7 @@ struct ReaderView: View {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             recognitionButton(model.document)
+            Button("Note del libro", systemImage: "note.text") { showNotes = true }
             Button("Cerca nel libro", systemImage: "magnifyingglass") {
                 if search == nil { search = BookSearch(document: document, library: library) }
                 showSearch = true
