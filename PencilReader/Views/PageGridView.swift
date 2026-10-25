@@ -7,6 +7,8 @@ struct PageGridView: View {
     let pageCount: Int
     let currentPage: Int
     let thumbnails: PageThumbnails
+    /// Pages that have a handwritten note, marked on their thumbnail.
+    var notedPages: Set<Int> = []
     let select: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -23,7 +25,8 @@ struct PageGridView: View {
                                 select(index)
                                 dismiss()
                             } label: {
-                                PageThumbnailCell(index: index, isCurrent: index == currentPage, thumbnails: thumbnails)
+                                PageThumbnailCell(index: index, isCurrent: index == currentPage,
+                                                  hasNote: notedPages.contains(index), thumbnails: thumbnails)
                             }
                             .buttonStyle(.plain)
                             .id(index)
@@ -47,6 +50,7 @@ struct PageGridView: View {
 private struct PageThumbnailCell: View {
     let index: Int
     let isCurrent: Bool
+    let hasNote: Bool
     let thumbnails: PageThumbnails
 
     @State private var image: UIImage?
@@ -65,6 +69,15 @@ private struct PageThumbnailCell: View {
             .overlay {
                 if isCurrent {
                     RoundedRectangle(cornerRadius: 4).stroke(Color.accentColor, lineWidth: 3)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if hasNote {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.orange, .white)
+                        .padding(6)
+                        .accessibilityLabel("Ha una nota")
                 }
             }
             .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
