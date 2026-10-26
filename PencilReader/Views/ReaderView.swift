@@ -1,3 +1,4 @@
+import ReaderCore
 import SwiftUI
 import Translation
 
@@ -22,17 +23,33 @@ struct ReaderView: View {
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
     @State private var showNotes = false
+    @State private var bookmarks: BookmarkStore?
+    @State private var showBookmarks = false
+    /// The bookmark being named, from the bookmark button's menu.
+    @State private var namingBookmark: Bookmark?
+    /// Every study mark of the book, cut out of its page and grouped by color.
+    @State private var showSummary = false
+    @State private var showExport = false
     /// Highlighter, underline and margin notes over the page, in place of the lasso.
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
+    /// Normal, sepia or night page; remembered per book.
+    @State private var theme: ReadingTheme
+
+    init(document: LibraryDocument) {
+        self.document = document
+        _theme = State(initialValue: ReadingTheme.saved(for: document.id))
+    }
 
     var body: some View {
         Group {
             if let model {
                 GeometryReader { geo in
                     HStack(spacing: 0) {
-                        PageView(model: model, study: study, onExit: { dismiss() })
+                        PageView(model: model, study: study, theme: theme.resolved(for: colorScheme),
+                                 onExit: { dismiss() })
                             .frame(width: pageWidth(in: geo.size.width))
                         if showNotebook, let notebook {
                             NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
@@ -54,6 +71,7 @@ struct ReaderView: View {
                     notebook?.show(page)
                     stats.pageShown(page, of: document.id)
                 }
+                .onChange(of: theme) { _, theme in ReadingTheme.save(theme, for: document.id) }
                 .onChange(of: scenePhase) { _, phase in
                     if phase != .active {
                         notebook?.flush()
@@ -69,10 +87,19 @@ struct ReaderView: View {
                         PageGridView(pageCount: model.pageCount, currentPage: model.pageIndex,
                                      thumbnails: thumbnails, notedPages: notebook?.notedPages ?? [],
                                      markedPages: study?.markedPages ?? [],
+                                     bookmarks: bookmarkTitles,
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
                 }
+                .sheet(isPresented: $showBookmarks) {
+                    if let bookmarks {
+                        BookmarksListView(bookmarks: bookmarks, thumbnails: thumbnails,
+                                          currentPage: model.pageIndex, select: model.showPage)
+                            .presentationSizing(.page)
+                    }
+                }
+                .bookmarkTitleAlert(item: $namingBookmark) { mark, title in bookmarks?.add(mark.page, title: title) }
                 .sheet(isPresented: $showNotes) {
                     NotesListView(bookID: document.id, pages: notebook?.notedPages.sorted() ?? []) { page in
                         model.showPage(page)
@@ -80,9 +107,22 @@ struct ReaderView: View {
                     }
                     .presentationSizing(.page)
                 }
+                .sheet(isPresented: $showSummary) {
+                    MarkSummaryView(document: document) { page, openNotebook in
+                        model.showPage(page)
+                        if openNotebook { showNotebook = true }
+                    }
+                    .presentationSizing(.page)
+                }
                 .sheet(isPresented: Binding(get: { study?.showsGuide == true },
                                             set: { study?.showsGuide = $0 })) {
                     StudyGuideView()
+                        .presentationSizing(.form)
+                }
+                .sheet(isPresented: $showExport) {
+                    PDFExportView(document: document, currentPage: model.pageIndex,
+                                  annotatedPages: (notebook?.notedPages ?? []).union(study?.markedPages ?? []),
+                                  paper: notebook?.paper ?? .grid)
                         .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showSearch) {
@@ -129,6 +169,7 @@ struct ReaderView: View {
                 model = reader
                 notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
                 study = StudyModel(bookID: document.id)
+                bookmarks = BookmarkStore(bookID: document.id, pageCount: document.pageCount)
                 stats.pageShown(reader.pageIndex, of: document.id)
                 thumbnails = PageThumbnails(
                     bookID: document.id, pageCount: document.pageCount,
@@ -186,6 +227,42 @@ struct ReaderView: View {
         }
     }
 
+    private var bookmarkTitles: [Int: String] {
+        Dictionary(uniqueKeysWithValues: (bookmarks?.bookmarks ?? []).map { ($0.page, $0.title) })
+    }
+
+    /// Tap marks or unmarks the page; held, it offers a name and the list of bookmarks.
+    @ViewBuilder private func bookmarkButton(_ bookmarks: BookmarkStore, model: ReaderModel) -> some View {
+        let page = model.pageIndex
+        let current = bookmarks.list.bookmark(at: page)
+        Menu {
+            Button(current == nil ? "Aggiungi con un nome…" : "Rinomina…", systemImage: "pencil") {
+                namingBookmark = current ?? Bookmark(page: page, created: .now)
+            }
+            if current != nil {
+                Button("Togli segnalibro", systemImage: "bookmark.slash", role: .destructive) {
+                    bookmarks.remove(page)
+                }
+            }
+            Divider()
+            if let previous = bookmarks.list.previous(before: page) {
+                Button("Precedente: \(previous.title)", systemImage: "chevron.up") { model.showPage(previous.page) }
+            }
+            if let next = bookmarks.list.next(after: page) {
+                Button("Successivo: \(next.title)", systemImage: "chevron.down") { model.showPage(next.page) }
+            }
+            Button("Tutti i segnalibri (\(bookmarks.bookmarks.count))", systemImage: "list.bullet") {
+                showBookmarks = true
+            }
+        } label: {
+            Label(current == nil ? "Aggiungi segnalibro" : "Togli segnalibro",
+                  systemImage: current == nil ? "bookmark" : "bookmark.fill")
+        } primaryAction: {
+            bookmarks.toggle(page)
+        }
+        .tint(current == nil ? nil : BookmarkRibbon.color)
+    }
+
     /// Turns study mode on and off: while on, the Pencil marks the page instead of translating.
     @ViewBuilder private func studyButton(_ study: StudyModel, model: ReaderModel) -> some View {
         let toggle = {
@@ -198,6 +275,20 @@ struct ReaderView: View {
                 .tint(.orange)
         } else {
             Button("Modalità studio", systemImage: "highlighter", action: toggle)
+        }
+    }
+
+    /// Quick pick of the page theme: a submenu of Altro, to keep the bar light.
+    private var themeMenu: some View {
+        Menu {
+            Picker("Tema della pagina", selection: $theme) {
+                ForEach(ReadingTheme.allCases) { theme in
+                    Label(theme.label, systemImage: theme.systemImage).tag(theme)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label("Tema della pagina", systemImage: theme.resolved(for: colorScheme).systemImage)
         }
     }
 
@@ -227,10 +318,19 @@ struct ReaderView: View {
             .accessibilityLabel("Tutte le pagine")
             Button("Pagina successiva", systemImage: "chevron.right") { model.nextPage() }
                 .disabled(model.pageIndex + 1 >= model.pageCount)
+            if let bookmarks { bookmarkButton(bookmarks, model: model) }
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
+            // Copies a part of the screen, page and notebook alike, cut out with the Pencil.
+            Button("Ritaglia schermo", systemImage: "scissors") { ScreenClipper.start() }
             recognitionButton(model.document)
+            Button("Riepilogo", systemImage: "list.bullet.rectangle.portrait") {
+                // So the marks and the note being written show up to date in the summary.
+                study?.flush()
+                notebook?.flush()
+                showSummary = true
+            }
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
                 notebook?.flush()
@@ -242,11 +342,19 @@ struct ReaderView: View {
             }
             Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
             Menu("Altro", systemImage: "ellipsis") {
+                themeMenu
+                Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
                 Toggle(isOn: Bindable(model).showWordBoxes) {
                     Label("Riquadri OCR", systemImage: "square.dashed")
                 }
                 Toggle(isOn: Bindable(model).allowsFingerDrawing) {
                     Label("Disegna col dito", systemImage: "hand.draw")
+                }
+                Button("Esporta PDF", systemImage: "square.and.arrow.up") {
+                    // So what was just written is in the PDF.
+                    notebook?.flush()
+                    study?.flush()
+                    showExport = true
                 }
             }
         }

@@ -6,6 +6,7 @@ struct PencilReaderApp: App {
     @State private var library: Library
     @State private var recognizer: BookRecognizer
     @State private var wordList = WordList()
+    @State private var reviews = ReviewStore()
     @State private var stats: ReadingStats
     @State private var studyTimer: StudyTimer
     /// Kept for the whole run: the notification center holds its delegate weakly.
@@ -27,6 +28,7 @@ struct PencilReaderApp: App {
                 .environment(library)
                 .environment(recognizer)
                 .environment(wordList)
+                .environment(reviews)
                 .environment(stats)
                 .environment(studyTimer)
         }
