@@ -24,24 +24,17 @@ enum ScreenClipper {
         view.appear()
     }
 
-    /// The snapshot inside `clip`: transparent outside its outline, at the screen's own scale.
+    /// The snapshot inside `clip`'s rectangle, at the screen's own scale.
     static func image(of clip: ScreenClip, from snapshot: UIImage) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = snapshot.scale
-        format.opaque = clip.outline == nil
+        format.opaque = true
         return UIGraphicsImageRenderer(size: clip.rect.size, format: format).image { _ in
-            if let outline = clip.outline, let first = outline.first {
-                let path = UIBezierPath()
-                path.move(to: first)
-                for p in outline.dropFirst() { path.addLine(to: p) }
-                path.close()
-                path.addClip()
-            }
             snapshot.draw(at: CGPoint(x: -clip.rect.minX, y: -clip.rect.minY))
         }
     }
 
-    /// PNG keeps the transparency around a circled part.
+    /// As PNG: lossless, so text in the copy stays sharp.
     static func copy(_ image: UIImage) -> Bool {
         guard let png = image.pngData() else { return false }
         UIPasteboard.general.setItems([[UTType.png.identifier: png]])
@@ -57,13 +50,15 @@ enum ScreenClipper {
     }
 }
 
-/// The clipping mode: the frozen screen, a hint with Annulla, and the outline being drawn.
+/// The clipping mode: the frozen screen, a hint with Annulla, the stroke being drawn
+/// and the rectangle that will be copied, reaching the stroke's farthest points.
 /// Only the Pencil draws; a finger tap leaves without copying.
 private final class ScreenClipView: UIView {
     private let snapshot: UIImage
     private let snapshotView: UIImageView
     private let dim = UIView()
-    private let outlineLayer = CAShapeLayer()
+    private let strokeLayer = CAShapeLayer()
+    private let rectLayer = CAShapeLayer()
     private let hint = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
     private let hintLabel = UILabel()
     private var points: [CGPoint] = []
@@ -90,13 +85,18 @@ private final class ScreenClipView: UIView {
         dim.isUserInteractionEnabled = false
         addSubview(dim)
 
-        outlineLayer.fillColor = UIColor.systemBlue.withAlphaComponent(0.12).cgColor
-        outlineLayer.strokeColor = UIColor.systemBlue.cgColor
-        outlineLayer.lineWidth = 2.5
-        outlineLayer.lineDashPattern = [8, 5]
-        outlineLayer.lineJoin = .round
-        outlineLayer.lineCap = .round
-        layer.addSublayer(outlineLayer)
+        rectLayer.fillColor = UIColor.systemBlue.withAlphaComponent(0.12).cgColor
+        rectLayer.strokeColor = UIColor.systemBlue.cgColor
+        rectLayer.lineWidth = 2
+        rectLayer.lineDashPattern = [8, 5]
+        layer.addSublayer(rectLayer)
+
+        strokeLayer.fillColor = nil
+        strokeLayer.strokeColor = UIColor.systemBlue.withAlphaComponent(0.6).cgColor
+        strokeLayer.lineWidth = 2
+        strokeLayer.lineJoin = .round
+        strokeLayer.lineCap = .round
+        layer.addSublayer(strokeLayer)
 
         setUpHint()
         accessibilityViewIsModal = true
@@ -216,13 +216,15 @@ private final class ScreenClipView: UIView {
 
     private func updateOutline() {
         guard let first = points.first else {
-            outlineLayer.path = nil
+            strokeLayer.path = nil
+            rectLayer.path = nil
             return
         }
         let path = UIBezierPath()
         path.move(to: first)
         for p in points.dropFirst() { path.addLine(to: p) }
-        outlineLayer.path = path.cgPath
+        strokeLayer.path = path.cgPath
+        rectLayer.path = UIBezierPath(rect: CGRect(boundingPoints: points)).cgPath
     }
 
     // MARK: Result
@@ -232,7 +234,7 @@ private final class ScreenClipView: UIView {
             // A slip or a too small loop: stay, and say how to do it.
             points = []
             updateOutline()
-            hintLabel.text = "Disegna un contorno chiuso più grande, oppure Annulla"
+            hintLabel.text = "Disegna un contorno più grande, oppure Annulla"
             return
         }
         let image = ScreenClipper.image(of: clip, from: snapshot)
@@ -250,7 +252,8 @@ private final class ScreenClipView: UIView {
     private func showCopied(_ image: UIImage, clip: ScreenClip) {
         finished = true
         isUserInteractionEnabled = false
-        outlineLayer.path = nil
+        strokeLayer.path = nil
+        rectLayer.path = nil
 
         let flash = UIImageView(image: image)
         flash.frame = clip.rect
