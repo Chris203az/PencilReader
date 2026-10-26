@@ -50,6 +50,10 @@ struct WordExplanationTests {
         #expect(text.contains("Termine inglese: \"stall\""))
         #expect(text.contains("Frase in cui compare: \"The wing reached the stall angle.\""))
         #expect(text.contains("in questa frase"))
+        // Asks for concrete data, not vague definitions.
+        let system = ((body["systemInstruction"] as? [String: Any])?["parts"] as? [[String: Any]])?.first?["text"] as? String
+        #expect(system?.contains("formula") == true)
+        #expect(system?.contains("unità di misura") == true)
     }
 
     @Test func promptWithoutSentenceAsksForTypicalUse() {

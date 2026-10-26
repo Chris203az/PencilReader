@@ -112,21 +112,32 @@ public enum GeminiExplainer {
     }
 
     static let systemPrompt = """
-        Aiuti uno studente italiano che legge un libro tecnico in inglese. \
-        Rispondi sempre in italiano, in modo chiaro e breve, senza formattazione Markdown.
+        Sei un tutor esperto che aiuta uno studente universitario italiano di ingegneria a capire un libro \
+        tecnico in inglese. Rispondi sempre in italiano, senza Markdown.
+        Dai informazioni concrete e utili per studiare, non definizioni vaghe: se il termine è un composto \
+        chimico scrivi la formula e cos'è; se è una grandezza fisica scrivi simbolo, unità di misura SI ed \
+        eventuale formula; se è una sigla scrivila per esteso; se è un componente o un processo spiega a cosa \
+        serve e come funziona; aggiungi un valore tipico o un esempio quando aiuta. Indica il termine italiano \
+        corretto quando esiste. Scrivi formule e simboli in testo semplice con caratteri Unicode \
+        (es. H₂O, N₂H₄, m/s², Isp = F/(ṁ·g₀)). Non inventare dati: se non sei sicuro di un valore, omettilo.
+        Sii denso ma breve: niente frasi di riempimento, non ripetere la domanda.
         """
 
     static func prompt(term: String, context: String?) -> String {
         let term = term.trimmingCharacters(in: .whitespacesAndNewlines)
         let sentence = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let meaning = """
+            - "\(meaningKey)": cos'è il termine in generale, con i dati concreti utili \
+            (formula, simbolo, unità, sigla per esteso, funzione), in 2-4 frasi.
+            """
         if sentence.isEmpty {
             return """
                 Termine inglese: "\(term)"
                 (La frase in cui compare non è disponibile.)
 
                 Rispondi in JSON con due campi:
-                - "\(meaningKey)": il significato generale del termine, in 1 o 2 frasi.
-                - "\(contextKey)": come si usa di solito in un testo tecnico, in 1 o 2 frasi.
+                \(meaning)
+                - "\(contextKey)": come e dove si usa di solito in un testo tecnico, in 1-3 frasi.
                 """
         }
         return """
@@ -134,8 +145,9 @@ public enum GeminiExplainer {
             Frase in cui compare: "\(sentence)"
 
             Rispondi in JSON con due campi:
-            - "\(meaningKey)": il significato generale del termine, in 1 o 2 frasi.
-            - "\(contextKey)": cosa significa il termine in questa frase, in 1 o 2 frasi.
+            \(meaning)
+            - "\(contextKey)": cosa significa e che ruolo ha in questa frase, collegandolo \
+            all'argomento del testo, in 1-3 frasi.
             """
     }
 
