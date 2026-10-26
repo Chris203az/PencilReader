@@ -342,8 +342,9 @@ final class StudyCanvasView: PKCanvasView {
                                                       fallbackHeight: Self.highlightWidth / height) else { return }
             let band = CGRect(x: rect.minX * Self.pageWidth, y: rect.minY * height,
                               width: rect.width * Self.pageWidth, height: rect.height * height)
-            // A bit taller than the letters; the round ends stay inside the words.
-            let size = band.height * 1.15
+            // A little thinner than the line's box, which already reaches past the letters:
+            // the band never spills onto the lines above and below. The round ends stay inside the words.
+            let size = band.height * 0.85
             let inset = min(size * 0.35, band.width / 2)
             let segment = StudyMarks.Segment(y: band.midY, minX: band.minX + inset, maxX: band.maxX - inset, height: size)
             // The straight highlights of the same color: overlapping ones become a single stroke,
@@ -372,7 +373,7 @@ final class StudyCanvasView: PKCanvasView {
     }
 
     /// The highlighter's thickness, in page units.
-    static let highlightWidth: CGFloat = 22
+    static let highlightWidth: CGFloat = 18
 
     /// A straight highlight of `ink`'s color, as a segment in page units; nil for anything else,
     /// such as a hand-drawn highlight saved before they were straightened.
