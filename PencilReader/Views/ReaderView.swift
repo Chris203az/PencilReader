@@ -195,7 +195,7 @@ struct ReaderView: View {
         }
     }
 
-    /// Quick pick of the page theme.
+    /// Quick pick of the page theme: a submenu of Altro, to keep the bar light.
     private var themeMenu: some View {
         Menu {
             Picker("Tema della pagina", selection: $theme) {
@@ -239,7 +239,6 @@ struct ReaderView: View {
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
             recognitionButton(model.document)
-            themeMenu
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
                 notebook?.flush()
@@ -251,6 +250,7 @@ struct ReaderView: View {
             }
             Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
             Menu("Altro", systemImage: "ellipsis") {
+                themeMenu
                 Toggle(isOn: Bindable(model).showWordBoxes) {
                     Label("Riquadri OCR", systemImage: "square.dashed")
                 }
