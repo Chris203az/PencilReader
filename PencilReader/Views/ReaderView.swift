@@ -194,7 +194,7 @@ struct ReaderView: View {
 
     /// Opens and closes the notebook beside the page.
     private var notebookButton: some View {
-        Button {
+        HintButton(hint: "Apre il quaderno accanto alla pagina, per prendere appunti con la Pencil") {
             // Opening the notebook on a page is asking for its note.
             if !showNotebook { notebook?.startNote() }
             showNotebook.toggle()
@@ -214,16 +214,22 @@ struct ReaderView: View {
     /// Recognizes the whole book in the background; shows the progress while it runs.
     @ViewBuilder private func recognitionButton(_ document: LibraryDocument) -> some View {
         if let progress = recognizer.progress(of: document) {
-            Button { recognizer.stop(document) } label: {
+            HintButton(hint: "Sto leggendo il testo di tutte le pagine: tocca per fermare") {
+                recognizer.stop(document)
+            } label: {
                 Label("Testo \(progress.done)/\(progress.total)", systemImage: "stop.circle")
                     .labelStyle(.titleAndIcon)
                     .monospacedDigit()
             }
         } else if recognizer.isQueued(document) {
-            Button("In coda", systemImage: "clock") { recognizer.stop(document) }
+            HintButton("In coda", systemImage: "clock",
+                       hint: "In attesa di leggere il testo del libro: tocca per annullare") { recognizer.stop(document) }
                 .labelStyle(.titleAndIcon)
         } else if library.recognizedPageCount(of: document) < document.pageCount {
-            Button("Riconosci tutto il libro", systemImage: "text.viewfinder") { recognizer.start(document) }
+            HintButton("Riconosci tutto il libro", systemImage: "text.viewfinder",
+                       hint: "Legge il testo di tutte le pagine in sottofondo, così ricerca e traduzione sono subito pronte") {
+                recognizer.start(document)
+            }
         }
     }
 
@@ -270,11 +276,13 @@ struct ReaderView: View {
             study.toggle()
         }
         if study.isActive {
-            Button("Esci dalla modalità studio", systemImage: "highlighter", action: toggle)
+            HintButton("Esci dalla modalità studio", systemImage: "highlighter",
+                       hint: "Torna alla traduzione: la Pencil cerchia di nuovo le parole", action: toggle)
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
         } else {
-            Button("Modalità studio", systemImage: "highlighter", action: toggle)
+            HintButton("Modalità studio", systemImage: "highlighter",
+                       hint: "Con la Pencil evidenzi, sottolinei e scrivi a margine invece di tradurre", action: toggle)
         }
     }
 
@@ -294,9 +302,9 @@ struct ReaderView: View {
 
     @ToolbarContentBuilder private func toolbar(_ model: ReaderModel) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            Button("Pagina precedente", systemImage: "chevron.left") { model.previousPage() }
+            HintButton("Pagina precedente", systemImage: "chevron.left", hint: "Torna alla pagina precedente") { model.previousPage() }
                 .disabled(model.pageIndex == 0)
-            Button {
+            HintButton(hint: "Tutte le pagine in miniatura, per saltare a quella che vuoi") {
                 showPages = true
             } label: {
                 HStack(spacing: 4) {
@@ -316,7 +324,7 @@ struct ReaderView: View {
                 }
             }
             .accessibilityLabel("Tutte le pagine")
-            Button("Pagina successiva", systemImage: "chevron.right") { model.nextPage() }
+            HintButton("Pagina successiva", systemImage: "chevron.right", hint: "Va alla pagina successiva") { model.nextPage() }
                 .disabled(model.pageIndex + 1 >= model.pageCount)
             if let bookmarks { bookmarkButton(bookmarks, model: model) }
         }
@@ -331,17 +339,19 @@ struct ReaderView: View {
                 notebook?.flush()
                 showSummary = true
             }
-            Button("Note del libro", systemImage: "note.text") {
+            HintButton("Note del libro", systemImage: "note.text",
+                       hint: "Elenco delle pagine con appunti nel quaderno") {
                 // So the page being written on shows up to date in the list.
                 notebook?.flush()
                 showNotes = true
             }
-            Button("Cerca nel libro", systemImage: "magnifyingglass") {
+            HintButton("Cerca nel libro", systemImage: "magnifyingglass", hint: "Cerca una parola in tutto il libro") {
                 if search == nil { search = BookSearch(document: document, library: library) }
                 showSearch = true
             }
-            Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
+            // Less used: kept in the menu so the bar stays light.
             Menu("Altro", systemImage: "ellipsis") {
+                Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
                 themeMenu
                 Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
                 Toggle(isOn: Bindable(model).showWordBoxes) {
