@@ -21,6 +21,8 @@ struct LibraryView: View {
 
     @Environment(Library.self) private var library
     @Environment(BookRecognizer.self) private var recognizer
+    @Environment(WordList.self) private var wordList
+    @Environment(ReviewStore.self) private var reviews
     @Environment(\.scenePhase) private var scenePhase
     @State private var showScanner = false
     @State private var showPDFImporter = false
@@ -35,6 +37,7 @@ struct LibraryView: View {
     @State private var collectionName = ""
     @State private var deletingCollection: DocumentCollection?
     @State private var showWords = false
+    @State private var showReview = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 24)]
 
@@ -86,6 +89,9 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { library.reload() } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                ReviewButton(count: reviews.dueCount(in: wordList.words)) { showReview = true }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -102,6 +108,14 @@ struct LibraryView: View {
         .sheet(isPresented: $showWords) {
             WordsView(currentDocument: nil) { word in
                 // Opens the book at the word's page.
+                guard let document = library.document(withID: word.documentID) else { return }
+                library.setLastPage(word.page, of: document)
+                open(document)
+            }
+            .presentationSizing(.page)
+        }
+        .sheet(isPresented: $showReview) {
+            ReviewView(words: wordList.words) { word in
                 guard let document = library.document(withID: word.documentID) else { return }
                 library.setLastPage(word.page, of: document)
                 open(document)
