@@ -46,6 +46,7 @@ App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la 
 - `PencilReader/`: l'app SwiftUI.
 - `ReaderCore/`: logica pura (selezione col lazo, testo della pagina, evidenziazione, ricerca, parole salvate e ripasso, forme e levigatura del quaderno, segni di studio e riepilogo, segnalibri, ritaglio, esportazione PDF, Pomodoro e statistiche), testabile su macOS con `swift test`.
 - `project.yml`: progetto Xcode generato con [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+- `android/`: la versione Android nativa (vedi sotto).
 
 ## Installazione sull'iPad
 
@@ -56,6 +57,10 @@ Serve un Mac con Xcode e XcodeGen (`brew install xcodegen`). Con l'iPad collegat
 ```
 
 Con un account Apple gratuito l'app va reinstallata ogni 7 giorni.
+
+## Versione Android
+
+In `android/` c'è una versione nativa per i tablet Android con penna (Kotlin, Jetpack Compose, ML Kit per OCR e traduzione, androidx.ink per il quaderno), con la stessa logica di `ReaderCore` portata in Kotlin nel modulo `android/core`. Come aprirla in Android Studio, compilarla e installarla, e le differenze dall'iPad, sono in [android/README.md](android/README.md).
 
 ## Da sviluppare
 
