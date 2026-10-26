@@ -46,6 +46,9 @@ public enum ExplanationError: Error, Equatable, Sendable {
 public enum GeminiExplainer {
     /// Change here to switch model.
     public static let model = "gemini-3.8-flash"
+    /// Tried in order when the previous model is overloaded, too slow or out of free quota.
+    public static let fallbackModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    public static var models: [String] { [model] + fallbackModels }
     /// Gemini 3.8 Flash accepts low, medium (default) and high; "minimal" is rejected.
     public static let thinkingLevel = "low"
     public static let endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!
@@ -55,22 +58,23 @@ public enum GeminiExplainer {
 
     // MARK: Request
 
-    public static func request(term: String, context: String?, apiKey: String) -> URLRequest {
-        post(body(term: term, context: context), apiKey: apiKey)
+    public static func request(term: String, context: String?, apiKey: String,
+                               model: String = model) -> URLRequest {
+        post(body(term: term, context: context), apiKey: apiKey, model: model)
     }
 
     /// A tiny message to check that a newly entered key works.
-    public static func testRequest(apiKey: String) -> URLRequest {
+    public static func testRequest(apiKey: String, model: String = model) -> URLRequest {
         post(["contents": [["role": "user", "parts": [["text": "Rispondi solo con la parola: ok"]]]],
               "generationConfig": ["thinkingConfig": ["thinkingLevel": thinkingLevel]]],
-             apiKey: apiKey)
+             apiKey: apiKey, model: model)
     }
 
-    private static func post(_ body: [String: Any], apiKey: String) -> URLRequest {
+    private static func post(_ body: [String: Any], apiKey: String, model: String) -> URLRequest {
         var request = URLRequest(url: endpoint.appendingPathComponent("\(model):generateContent"))
         request.httpMethod = "POST"
-        // The free tier can be slow at busy times.
-        request.timeoutInterval = 90
+        // An overloaded model can hang for a long time before answering 503: better to move on.
+        request.timeoutInterval = 25
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // The key goes in a header, never in the URL.
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
@@ -188,6 +192,14 @@ public enum GeminiExplainer {
             return .unavailable
         default:
             return .http(status)
+        }
+    }
+
+    /// Errors tied to one model, where another model may still answer.
+    public static func shouldTryNextModel(after error: ExplanationError) -> Bool {
+        switch error {
+        case .unavailable, .timedOut, .quotaExceeded, .modelNotFound, .http: true
+        case .missingKey, .invalidKey, .offline, .blocked, .badResponse: false
         }
     }
 

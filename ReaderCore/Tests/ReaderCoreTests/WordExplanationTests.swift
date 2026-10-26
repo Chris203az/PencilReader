@@ -133,6 +133,19 @@ struct WordExplanationTests {
         #expect(GeminiExplainer.error(status: 503, body: Data()) == .unavailable)
     }
 
+    @Test func fallsBackOnlyForModelErrors() {
+        #expect(GeminiExplainer.models.first == GeminiExplainer.model)
+        #expect(GeminiExplainer.models.count == Set(GeminiExplainer.models).count)
+        #expect(GeminiExplainer.request(term: "a", context: nil, apiKey: "k", model: "gemini-x").url?
+            .absoluteString.hasSuffix("/gemini-x:generateContent") == true)
+        for error in [ExplanationError.unavailable, .timedOut, .quotaExceeded, .modelNotFound] {
+            #expect(GeminiExplainer.shouldTryNextModel(after: error))
+        }
+        for error in [ExplanationError.invalidKey, .offline, .blocked, .badResponse] {
+            #expect(!GeminiExplainer.shouldTryNextModel(after: error))
+        }
+    }
+
     @Test func mapsNetworkErrors() {
         #expect(GeminiExplainer.error(for: URLError(.notConnectedToInternet)) == .offline)
         #expect(GeminiExplainer.error(for: URLError(.timedOut)) == .timedOut)

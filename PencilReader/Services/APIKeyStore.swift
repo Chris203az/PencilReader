@@ -58,29 +58,50 @@ final class APIKeyStore {
 /// Asks Gemini for a short explanation of a circled term.
 enum WordExplainer {
     static func explain(term: String, context: String?, apiKey: String) async throws(ExplanationError) -> WordExplanation {
-        try await GeminiExplainer.parse(send(GeminiExplainer.request(term: term, context: context, apiKey: apiKey)))
+        try await firstAnswer { model in
+            try await GeminiExplainer.parse(send(GeminiExplainer.request(term: term, context: context,
+                                                                         apiKey: apiKey, model: model)))
+        }
     }
 
     /// Sends a tiny message to check the key; throws why it doesn't work.
     static func test(apiKey: String) async throws(ExplanationError) {
-        try await GeminiExplainer.parseTest(send(GeminiExplainer.testRequest(apiKey: apiKey)))
+        try await firstAnswer { model in
+            try await GeminiExplainer.parseTest(send(GeminiExplainer.testRequest(apiKey: apiKey, model: model)))
+        }
+    }
+
+    /// Tries the models in order, moving on when one is overloaded, too slow or out of quota.
+    private static func firstAnswer<T>(_ ask: (String) async throws -> T) async throws(ExplanationError) -> T {
+        var lastError = ExplanationError.unavailable
+        for model in GeminiExplainer.models {
+            do {
+                return try await ask(model)
+            } catch {
+                let failure = error as? ExplanationError ?? .unavailable
+                guard GeminiExplainer.shouldTryNextModel(after: failure), !Task.isCancelled else { throw failure }
+                lastError = failure
+            }
+        }
+        throw lastError
     }
 
     private static func send(_ request: URLRequest) async throws(ExplanationError) -> Data {
         let start = Date()
+        let model = request.url?.lastPathComponent ?? ""
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch let error as URLError {
-            log(start, "URLError \(error.code.rawValue) \(error.localizedDescription)")
+            log(start, "\(model) URLError \(error.code.rawValue) \(error.localizedDescription)")
             throw GeminiExplainer.error(for: error)
         } catch {
-            log(start, "errore \(error)")
+            log(start, "\(model) errore \(error)")
             throw .unavailable
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        log(start, "HTTP \(status) \(String(decoding: data.prefix(600), as: UTF8.self))")
+        log(start, "\(model) HTTP \(status) \(String(decoding: data.prefix(600), as: UTF8.self))")
         guard status == 200 else { throw GeminiExplainer.error(status: status, body: data) }
         return data
     }
