@@ -58,7 +58,15 @@ final class APIKeyStore {
 /// Asks Gemini for a short explanation of a circled term.
 enum WordExplainer {
     static func explain(term: String, context: String?, apiKey: String) async throws(ExplanationError) -> WordExplanation {
-        let request = GeminiExplainer.request(term: term, context: context, apiKey: apiKey)
+        try await GeminiExplainer.parse(send(GeminiExplainer.request(term: term, context: context, apiKey: apiKey)))
+    }
+
+    /// Sends a tiny message to check the key; throws why it doesn't work.
+    static func test(apiKey: String) async throws(ExplanationError) {
+        try await GeminiExplainer.parseTest(send(GeminiExplainer.testRequest(apiKey: apiKey)))
+    }
+
+    private static func send(_ request: URLRequest) async throws(ExplanationError) -> Data {
         let start = Date()
         let data: Data
         let response: URLResponse
@@ -74,7 +82,7 @@ enum WordExplainer {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         log(start, "HTTP \(status) \(String(decoding: data.prefix(600), as: UTF8.self))")
         guard status == 200 else { throw GeminiExplainer.error(status: status, body: data) }
-        return try GeminiExplainer.parse(data)
+        return data
     }
 
     /// Duration and outcome of each request (never the key), in Documents/diagnostica-ia.txt. Debug builds only.

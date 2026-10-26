@@ -56,6 +56,17 @@ public enum GeminiExplainer {
     // MARK: Request
 
     public static func request(term: String, context: String?, apiKey: String) -> URLRequest {
+        post(body(term: term, context: context), apiKey: apiKey)
+    }
+
+    /// A tiny message to check that a newly entered key works.
+    public static func testRequest(apiKey: String) -> URLRequest {
+        post(["contents": [["role": "user", "parts": [["text": "Rispondi solo con la parola: ok"]]]],
+              "generationConfig": ["thinkingConfig": ["thinkingLevel": thinkingLevel]]],
+             apiKey: apiKey)
+    }
+
+    private static func post(_ body: [String: Any], apiKey: String) -> URLRequest {
         var request = URLRequest(url: endpoint.appendingPathComponent("\(model):generateContent"))
         request.httpMethod = "POST"
         // The free tier can be slow at busy times.
@@ -63,8 +74,7 @@ public enum GeminiExplainer {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // The key goes in a header, never in the URL.
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body(term: term, context: context),
-                                                       options: [.sortedKeys])
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return request
     }
 
@@ -120,6 +130,16 @@ public enum GeminiExplainer {
 
     /// Reads a successful (HTTP 200) `generateContent` response.
     public static func parse(_ data: Data) throws(ExplanationError) -> WordExplanation {
+        try explanation(fromModelText: answerText(data))
+    }
+
+    /// Reads the answer to `testRequest`: any text means the key works.
+    public static func parseTest(_ data: Data) throws(ExplanationError) {
+        guard try !answerText(data).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw .badResponse }
+    }
+
+    /// The answer's text, without thought parts.
+    static func answerText(_ data: Data) throws(ExplanationError) -> String {
         guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw .badResponse
         }
@@ -136,7 +156,7 @@ public enum GeminiExplainer {
            ["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION"].contains(reason) {
             throw .blocked
         }
-        return try explanation(fromModelText: text)
+        return text
     }
 
     /// The model's JSON, tolerating code fences or text around it.

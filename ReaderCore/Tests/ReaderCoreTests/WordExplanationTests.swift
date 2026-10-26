@@ -58,6 +58,16 @@ struct WordExplanationTests {
         #expect(text.contains("non è disponibile"))
     }
 
+    @Test func testRequestIsShortWithKeyInHeader() {
+        let request = GeminiExplainer.testRequest(apiKey: "SECRET")
+        #expect(request.value(forHTTPHeaderField: "x-goog-api-key") == "SECRET")
+        #expect(request.url?.absoluteString.hasSuffix("/\(GeminiExplainer.model):generateContent") == true)
+        let body = requestBody(request)
+        let config = body["generationConfig"] as? [String: Any]
+        #expect((config?["thinkingConfig"] as? [String: Any])?["thinkingLevel"] as? String == "low")
+        #expect(config?["responseSchema"] == nil)
+    }
+
     // MARK: Response
 
     @Test func parsesStructuredAnswer() throws {
@@ -98,6 +108,14 @@ struct WordExplanationTests {
         }
         #expect(throws: ExplanationError.blocked) {
             try GeminiExplainer.parse(json(["candidates": [["finishReason": "SAFETY"]]]))
+        }
+    }
+
+    @Test func testAnswerNeedsSomeText() throws {
+        try GeminiExplainer.parseTest(response(text: "ok"))
+        #expect(throws: ExplanationError.badResponse) { try GeminiExplainer.parseTest(response(text: "  ")) }
+        #expect(throws: ExplanationError.blocked) {
+            try GeminiExplainer.parseTest(json(["promptFeedback": ["blockReason": "OTHER"]]))
         }
     }
 
