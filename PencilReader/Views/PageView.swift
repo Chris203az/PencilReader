@@ -6,6 +6,8 @@ import SwiftUI
 struct PageView: View {
     let model: ReaderModel
     var study: StudyModel?
+    /// Already resolved: never `.system`.
+    var theme: ReadingTheme = .normal
     let onExit: () -> Void
     @State private var panelHeight: CGFloat = 220
     /// 1 = page fitted to the screen.
@@ -26,6 +28,7 @@ struct PageView: View {
                 ZStack(alignment: .topLeading) {
                     Image(uiImage: image)
                         .resizable()
+                        .readingTheme(theme)
                         .frame(width: frame.width, height: frame.height)
                         .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
                         .offset(x: frame.minX, y: frame.minY)
@@ -68,7 +71,8 @@ struct PageView: View {
                                         }
                                     }
                                 },
-                                study: study.map { ($0, $0.isActive, model.pageIndex, frame, model.pageText) })
+                                study: study.map { ($0, $0.isActive, model.pageIndex, frame, model.pageText) },
+                                nightInk: theme == .night)
 
                     if let selection = model.selection {
                         TranslationPanel(selection: selection, onClose: model.clearSelection)
@@ -100,7 +104,7 @@ struct PageView: View {
             }
         }
         .clipped()
-        .background(Color(.secondarySystemBackground))
+        .background(theme.background)
         .onChange(of: model.pageIndex) { resetZoom() }
     }
 

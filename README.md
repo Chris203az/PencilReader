@@ -6,6 +6,10 @@ App per iPad per leggere libri tecnici in inglese (soprattutto scansioni): si ce
 - Traduzione EN→IT con il framework Translation di Apple: frase intera con le parole cerchiate evidenziate.
 - Libreria con collezioni, griglia delle pagine, zoom, ricerca nel libro.
 - Parole cercate salvate per libro, esportabili in un file di testo.
+- Ripasso a flashcard delle parole salvate, con ripetizione spaziata (SM-2 semplificato) e badge delle parole da ripassare oggi.
+- Esportazione del libro annotato in PDF (segni della modalità studio e note del quaderno, affiancate o in pagine a parte).
+- Timer di studio (Pomodoro, 25/5 regolabile) nella barra del lettore, con notifica a fine blocco.
+- Statistiche di lettura: tempo per libro e per giorno, pagine viste, grafico degli ultimi 7 giorni.
 
 ## Struttura
 
