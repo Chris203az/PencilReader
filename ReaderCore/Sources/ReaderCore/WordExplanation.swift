@@ -44,11 +44,20 @@ public enum ExplanationError: Error, Equatable, Sendable {
 
 /// Builds requests to and reads responses from the Gemini API (`generateContent`, REST).
 public enum GeminiExplainer {
-    /// Change here to switch model.
-    public static let model = "gemini-3.8-flash"
-    /// Tried in order when the previous model is overloaded, too slow or out of free quota.
-    public static let fallbackModels = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
-    public static var models: [String] { [model] + fallbackModels }
+    /// The models offered in the settings (ID, name), in fallback order. Change here to switch models.
+    public static let choices: [(id: String, name: String)] = [
+        ("gemini-3.8-flash", "Gemini 3.8 Flash"),
+        ("gemini-3.6-flash", "Gemini 3.6 Flash"),
+        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite")
+    ]
+    /// Default model.
+    public static var model: String { choices[0].id }
+
+    /// The chosen model first, then the others in case it is overloaded, too slow or out of free quota.
+    public static func models(preferred: String) -> [String] {
+        let all = choices.map(\.id)
+        return all.contains(preferred) ? [preferred] + all.filter { $0 != preferred } : all
+    }
     /// Gemini 3.8 Flash accepts low, medium (default) and high; "minimal" is rejected.
     public static let thinkingLevel = "low"
     public static let endpoint = URL(string: "https://generativelanguage.googleapis.com/v1beta/models")!

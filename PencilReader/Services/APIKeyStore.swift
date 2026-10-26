@@ -57,6 +57,9 @@ final class APIKeyStore {
 
 /// Asks Gemini for a short explanation of a circled term.
 enum WordExplainer {
+    /// UserDefaults key of the model chosen in the AI settings.
+    static let preferredModelKey = "aiModel"
+
     static func explain(term: String, context: String?, apiKey: String) async throws(ExplanationError) -> WordExplanation {
         try await firstAnswer { model in
             try await GeminiExplainer.parse(send(GeminiExplainer.request(term: term, context: context,
@@ -74,7 +77,8 @@ enum WordExplainer {
     /// Tries the models in order, moving on when one is overloaded, too slow or out of quota.
     private static func firstAnswer<T>(_ ask: (String) async throws -> T) async throws(ExplanationError) -> T {
         var lastError = ExplanationError.unavailable
-        for model in GeminiExplainer.models {
+        let preferred = UserDefaults.standard.string(forKey: preferredModelKey) ?? GeminiExplainer.model
+        for model in GeminiExplainer.models(preferred: preferred) {
             do {
                 return try await ask(model)
             } catch {

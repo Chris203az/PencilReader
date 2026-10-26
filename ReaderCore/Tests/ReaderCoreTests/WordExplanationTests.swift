@@ -134,8 +134,12 @@ struct WordExplanationTests {
     }
 
     @Test func fallsBackOnlyForModelErrors() {
-        #expect(GeminiExplainer.models.first == GeminiExplainer.model)
-        #expect(GeminiExplainer.models.count == Set(GeminiExplainer.models).count)
+        #expect(GeminiExplainer.models(preferred: "gemini-3.8-flash")
+            == ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"])
+        #expect(GeminiExplainer.models(preferred: "gemini-3.5-flash-lite")
+            == ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash"])
+        // An unknown saved model falls back to the default order.
+        #expect(GeminiExplainer.models(preferred: "gemini-1").first == GeminiExplainer.model)
         #expect(GeminiExplainer.request(term: "a", context: nil, apiKey: "k", model: "gemini-x").url?
             .absoluteString.hasSuffix("/gemini-x:generateContent") == true)
         for error in [ExplanationError.unavailable, .timedOut, .quotaExceeded, .modelNotFound] {

@@ -7,6 +7,7 @@ struct AISettingsView: View {
     @State private var keys = APIKeyStore.shared
     @State private var draft = ""
     @State private var check = KeyCheck.idle
+    @AppStorage(WordExplainer.preferredModelKey) private var preferredModel = GeminiExplainer.model
 
     private enum KeyCheck: Equatable {
         case idle, checking
@@ -49,6 +50,20 @@ struct AISettingsView: View {
                         Link("Crea una chiave gratuita su Google AI Studio",
                              destination: URL(string: "https://aistudio.google.com/apikey")!)
                     }
+                }
+
+                Section {
+                    Picker("Modello", selection: $preferredModel) {
+                        ForEach(GeminiExplainer.choices, id: \.id) { choice in
+                            Text(choice.name).tag(choice.id)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    Text("Modello")
+                } footer: {
+                    Text("Se il modello scelto è sovraccarico o non risponde entro 25 secondi, si passa da soli agli altri.")
                 }
             }
             .navigationTitle("Impostazioni IA")
