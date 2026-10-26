@@ -25,6 +25,8 @@ struct ReaderView: View {
     @State private var showBookmarks = false
     /// The bookmark being named, from the bookmark button's menu.
     @State private var namingBookmark: Bookmark?
+    /// Every study mark of the book, cut out of its page and grouped by color.
+    @State private var showSummary = false
     /// Highlighter, underline and margin notes over the page, in place of the lasso.
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
@@ -82,6 +84,13 @@ struct ReaderView: View {
                     NotesListView(bookID: document.id, pages: notebook?.notedPages.sorted() ?? []) { page in
                         model.showPage(page)
                         showNotebook = true
+                    }
+                    .presentationSizing(.page)
+                }
+                .sheet(isPresented: $showSummary) {
+                    MarkSummaryView(document: document) { page, openNotebook in
+                        model.showPage(page)
+                        if openNotebook { showNotebook = true }
                     }
                     .presentationSizing(.page)
                 }
@@ -269,6 +278,12 @@ struct ReaderView: View {
             // Copies a part of the screen, page and notebook alike, cut out with the Pencil.
             Button("Ritaglia schermo", systemImage: "scissors") { ScreenClipper.start() }
             recognitionButton(model.document)
+            Button("Riepilogo", systemImage: "list.bullet.rectangle.portrait") {
+                // So the marks and the note being written show up to date in the summary.
+                study?.flush()
+                notebook?.flush()
+                showSummary = true
+            }
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
                 notebook?.flush()
