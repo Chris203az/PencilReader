@@ -53,7 +53,7 @@ struct ReadingLogTests {
         #expect(week.count == 7)
         #expect(week.first?.date == calendar.startOfDay(for: date(18, 0)))
         #expect(week.first?.seconds == 3600)
-        #expect(week.last?.seconds == 15 * 60)
+        #expect(week.last?.seconds == TimeInterval(15 * 60))
         #expect(week.last?.focusBlocks == 1)
         #expect(week.dropFirst().dropLast().allSatisfy { $0.seconds == 0 })
     }
@@ -65,7 +65,7 @@ struct ReadingLogTests {
         log.addReading(of: book, from: date(1, 9), to: date(1, 12), calendar: calendar)
         let totals = log.bookTotals(lastDays: 7, endingOn: date(24, 20), calendar: calendar)
         #expect(totals.map(\.bookID) == [other, book])
-        #expect(totals.last?.seconds == 10 * 60)
+        #expect(totals.last?.seconds == TimeInterval(10 * 60))
     }
 
     @Test func removingABookForgetsIt() {
