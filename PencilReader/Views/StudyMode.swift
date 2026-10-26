@@ -246,7 +246,19 @@ final class StudyCanvasView: PKCanvasView {
             }
             page = newPage
             history = []
-            setDrawing(study.drawing(of: newPage))
+            atStart = nil
+            // Placed first: the new marks are drawn at the zoom and scroll of the page they belong to.
+            place(on: frame)
+            let marks = study.drawing(of: newPage)
+            setDrawing(marks)
+            // PencilKit can keep showing the last stroke of the old page, on top of the new one,
+            // until the next stroke repaints the canvas. Emptied and refilled once it has settled,
+            // the canvas repaints everything.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.page == newPage, self.drawing == marks else { return }
+                self.setDrawing(PKDrawing())
+                self.setDrawing(marks)
+            }
         }
         place(on: frame)
     }
