@@ -214,6 +214,8 @@ struct ReaderView: View {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
+            // Copies a part of the screen, page and notebook alike, cut out with the Pencil.
+            Button("Ritaglia schermo", systemImage: "scissors") { ScreenClipper.start() }
             recognitionButton(model.document)
             Button("Note del libro", systemImage: "note.text") {
                 // So the page being written on shows up to date in the list.
