@@ -1,6 +1,6 @@
 # PencilReader
 
-App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la Apple Pencil: si cerchia una parola e compare la traduzione italiana, si evidenzia e si prendono appunti a fianco della pagina, si ripassa e si tiene traccia dello studio. Tutto gira sul dispositivo, gratis e senza account.
+App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la Apple Pencil: si cerchia una parola e compare la traduzione italiana, si evidenzia e si prendono appunti a fianco della pagina, si ripassa e si tiene traccia dello studio. Tutto gira sul dispositivo, gratis e senza account (tranne la spiegazione IA facoltativa).
 
 ### Libreria
 
@@ -12,6 +12,7 @@ App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la 
 
 - Riconoscimento del testo con Vision, una volta per pagina, anche per tutto il libro in sottofondo.
 - Si cerchia una parola con la Pencil: traduzione EN→IT con il framework Translation di Apple, frase intera con le parole cerchiate evidenziate.
+- Facoltativo, "Chiedi all'IA" nel riquadro della traduzione: spiegazione breve del termine e di cosa significa in quella frase, con Gemini tramite una chiave API gratuita di Google AI Studio (Impostazioni IA, salvata nel Portachiavi).
 - Ricerca di una parola in tutto il libro, zoom con le dita (da zoomati, uno scorrimento rapido a due dita cambia pagina), uscita dal libro scorrendo verso il basso.
 - Tema della pagina: Normale, Seppia, Notte o come il sistema.
 - Segnalibri con nome, elenco e filtro nella griglia delle pagine (nastrino sulle anteprime).

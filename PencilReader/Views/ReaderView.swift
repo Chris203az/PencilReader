@@ -19,6 +19,7 @@ struct ReaderView: View {
     /// Kept while the book is open, so the last search is still there.
     @State private var search: BookSearch?
     @State private var showWords = false
+    @State private var showAISettings = false
     /// Created with the model, so the notes of every page are known before the notebook opens.
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
@@ -130,6 +131,9 @@ struct ReaderView: View {
                         SearchView(document: document, search: search, select: model.showMatch)
                             .presentationSizing(.page)
                     }
+                }
+                .sheet(isPresented: $showAISettings) {
+                    AISettingsView().presentationSizing(.form)
                 }
                 .sheet(isPresented: $showWords) {
                     WordsView(currentDocument: document) { word in
@@ -354,6 +358,7 @@ struct ReaderView: View {
                 Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
                 themeMenu
                 Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
+                Button("Impostazioni IA", systemImage: "sparkles") { showAISettings = true }
                 Toggle(isOn: Bindable(model).showWordBoxes) {
                     Label("Riquadri OCR", systemImage: "square.dashed")
                 }
