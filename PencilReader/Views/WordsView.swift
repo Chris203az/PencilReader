@@ -11,9 +11,11 @@ struct WordsView: View {
 
     @Environment(WordList.self) private var wordList
     @Environment(Library.self) private var library
+    @Environment(ReviewStore.self) private var reviews
     @Environment(\.dismiss) private var dismiss
     @State private var onlyThisBook = true
     @State private var filter = ""
+    @State private var showReview = false
 
     private var shown: [SavedWord] {
         var words = wordList.words
@@ -81,6 +83,17 @@ struct WordsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fine") { dismiss() }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    // Reviews the words in the list: this book's or all of them.
+                    ReviewButton(count: reviews.dueCount(in: shown)) { showReview = true }
+                }
+            }
+            .sheet(isPresented: $showReview) {
+                ReviewView(words: shown) { word in
+                    select(word)
+                    dismiss()
+                }
+                .presentationSizing(.page)
             }
         }
     }
