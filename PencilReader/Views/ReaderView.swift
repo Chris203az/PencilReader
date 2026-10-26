@@ -1,3 +1,4 @@
+import ReaderCore
 import SwiftUI
 import Translation
 
@@ -20,6 +21,10 @@ struct ReaderView: View {
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
     @State private var showNotes = false
+    @State private var bookmarks: BookmarkStore?
+    @State private var showBookmarks = false
+    /// The bookmark being named, from the bookmark button's menu.
+    @State private var namingBookmark: Bookmark?
     /// Highlighter, underline and margin notes over the page, in place of the lasso.
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
@@ -60,10 +65,19 @@ struct ReaderView: View {
                         PageGridView(pageCount: model.pageCount, currentPage: model.pageIndex,
                                      thumbnails: thumbnails, notedPages: notebook?.notedPages ?? [],
                                      markedPages: study?.markedPages ?? [],
+                                     bookmarks: bookmarkTitles,
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
                 }
+                .sheet(isPresented: $showBookmarks) {
+                    if let bookmarks {
+                        BookmarksListView(bookmarks: bookmarks, thumbnails: thumbnails,
+                                          currentPage: model.pageIndex, select: model.showPage)
+                            .presentationSizing(.page)
+                    }
+                }
+                .bookmarkTitleAlert(item: $namingBookmark) { mark, title in bookmarks?.add(mark.page, title: title) }
                 .sheet(isPresented: $showNotes) {
                     NotesListView(bookID: document.id, pages: notebook?.notedPages.sorted() ?? []) { page in
                         model.showPage(page)
@@ -114,6 +128,7 @@ struct ReaderView: View {
                 model = reader
                 notebook = NotebookModel(bookID: document.id, pageIndex: reader.pageIndex)
                 study = StudyModel(bookID: document.id)
+                bookmarks = BookmarkStore(bookID: document.id, pageCount: document.pageCount)
                 thumbnails = PageThumbnails(
                     bookID: document.id, pageCount: document.pageCount,
                     pdfURL: document.kind == .pdf ? library.pdfURL(of: document) : nil,
@@ -170,6 +185,42 @@ struct ReaderView: View {
         }
     }
 
+    private var bookmarkTitles: [Int: String] {
+        Dictionary(uniqueKeysWithValues: (bookmarks?.bookmarks ?? []).map { ($0.page, $0.title) })
+    }
+
+    /// Tap marks or unmarks the page; held, it offers a name and the list of bookmarks.
+    @ViewBuilder private func bookmarkButton(_ bookmarks: BookmarkStore, model: ReaderModel) -> some View {
+        let page = model.pageIndex
+        let current = bookmarks.list.bookmark(at: page)
+        Menu {
+            Button(current == nil ? "Aggiungi con un nome…" : "Rinomina…", systemImage: "pencil") {
+                namingBookmark = current ?? Bookmark(page: page, created: .now)
+            }
+            if current != nil {
+                Button("Togli segnalibro", systemImage: "bookmark.slash", role: .destructive) {
+                    bookmarks.remove(page)
+                }
+            }
+            Divider()
+            if let previous = bookmarks.list.previous(before: page) {
+                Button("Precedente: \(previous.title)", systemImage: "chevron.up") { model.showPage(previous.page) }
+            }
+            if let next = bookmarks.list.next(after: page) {
+                Button("Successivo: \(next.title)", systemImage: "chevron.down") { model.showPage(next.page) }
+            }
+            Button("Tutti i segnalibri (\(bookmarks.bookmarks.count))", systemImage: "list.bullet") {
+                showBookmarks = true
+            }
+        } label: {
+            Label(current == nil ? "Aggiungi segnalibro" : "Togli segnalibro",
+                  systemImage: current == nil ? "bookmark" : "bookmark.fill")
+        } primaryAction: {
+            bookmarks.toggle(page)
+        }
+        .tint(current == nil ? nil : BookmarkRibbon.color)
+    }
+
     /// Turns study mode on and off: while on, the Pencil marks the page instead of translating.
     @ViewBuilder private func studyButton(_ study: StudyModel, model: ReaderModel) -> some View {
         let toggle = {
@@ -211,6 +262,7 @@ struct ReaderView: View {
             .accessibilityLabel("Tutte le pagine")
             Button("Pagina successiva", systemImage: "chevron.right") { model.nextPage() }
                 .disabled(model.pageIndex + 1 >= model.pageCount)
+            if let bookmarks { bookmarkButton(bookmarks, model: model) }
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
@@ -228,6 +280,7 @@ struct ReaderView: View {
             }
             Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
             Menu("Altro", systemImage: "ellipsis") {
+                Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
                 Toggle(isOn: Bindable(model).showWordBoxes) {
                     Label("Riquadri OCR", systemImage: "square.dashed")
                 }
