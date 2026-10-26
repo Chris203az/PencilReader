@@ -22,6 +22,8 @@ struct LassoCanvas: UIViewRepresentable {
     /// The study marks of the book, with the page shown and where its image is. They stay
     /// on the page when study mode is off; only while it is on does the Pencil mark instead of lassoing.
     var study: (model: StudyModel, isActive: Bool, page: Int, frame: CGRect, text: PageText?)?
+    /// The page is shown inverted (night theme): the marks follow it so they stay readable.
+    var nightInk = false
 
     func makeUIView(context: Context) -> LassoCanvasView { LassoCanvasView() }
 
@@ -36,8 +38,9 @@ struct LassoCanvas: UIViewRepresentable {
         view.onPan = onPan
         view.onDoubleTap = onDoubleTap
         if let study {
-            view.showMarks(of: study.model, editable: study.isActive)
-                .update(page: study.page, frame: study.frame, text: study.text)
+            let canvas = view.showMarks(of: study.model, editable: study.isActive)
+            canvas.setNight(nightInk)
+            canvas.update(page: study.page, frame: study.frame, text: study.text)
         } else {
             view.stopStudying()
         }
