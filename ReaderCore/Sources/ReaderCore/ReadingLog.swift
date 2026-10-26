@@ -45,8 +45,9 @@ public struct ReadingLog: Codable, Sendable, Equatable {
         while from < end {
             let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: from)) ?? end
             let to = min(end, nextDay)
+            // Whole seconds: differences between dates carry tiny floating point errors.
             days[Self.dayKey(from, calendar: calendar), default: [:]][book.uuidString, default: Entry()].seconds
-                += to.timeIntervalSince(from)
+                += to.timeIntervalSince(from).rounded()
             from = to
         }
     }
