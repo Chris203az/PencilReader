@@ -6,7 +6,7 @@ import UIKit
 /// Finger touches never draw (unless enabled for the simulator): a tap
 /// closes the panel, a horizontal swipe turns the page, a swipe down exits,
 /// a pinch or a double tap zooms. While zoomed, dragging moves the page
-/// instead of swiping. In study mode the Pencil marks the page instead; fingers work the same.
+/// and a two-finger swipe turns it. In study mode the Pencil marks the page instead; fingers work the same.
 struct LassoCanvas: UIViewRepresentable {
     var allowsFinger: Bool
     var isZoomed: Bool
@@ -70,7 +70,10 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     private var activeTouch: UITouch?
     private let strokeLayer = CAShapeLayer()
     private var swipes: [UISwipeGestureRecognizer] = []
+    /// On a zoomed page one finger moves the page, so turning it takes a two-finger swipe.
+    private var zoomedSwipes: [UISwipeGestureRecognizer] = []
     private let pan = UIPanGestureRecognizer()
+    private let pinch = UIPinchGestureRecognizer()
     /// While studying, the Pencil draws on this canvas instead of lassoing. It is a subview,
     /// so the finger gestures of this view still turn, zoom and move the page.
     private var studyCanvas: StudyCanvasView?
@@ -95,6 +98,15 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
             addGestureRecognizer(swipe)
             swipes.append(swipe)
         }
+        for direction in [UISwipeGestureRecognizer.Direction.left, .right] {
+            let swipe = UISwipeGestureRecognizer(target: self, action: #selector(handleZoomedSwipe(_:)))
+            swipe.direction = direction
+            swipe.numberOfTouchesRequired = 2
+            swipe.allowedTouchTypes = fingers
+            swipe.delegate = self
+            addGestureRecognizer(swipe)
+            zoomedSwipes.append(swipe)
+        }
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         doubleTap.allowedTouchTypes = fingers
@@ -104,7 +116,7 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
         tap.require(toFail: doubleTap)
         addGestureRecognizer(tap)
 
-        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        pinch.addTarget(self, action: #selector(handlePinch(_:)))
         pinch.allowedTouchTypes = fingers
         pinch.delegate = self
         addGestureRecognizer(pinch)
@@ -118,16 +130,24 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
 
     private func updateGestures() {
         swipes.forEach { $0.isEnabled = !allowsFinger && !isZoomed }
+        zoomedSwipes.forEach { $0.isEnabled = isZoomed }
         pan.isEnabled = isZoomed
         // With finger drawing on, one finger draws and two move the page.
         pan.minimumNumberOfTouches = allowsFinger ? 2 : 1
     }
 
     /// Pinch and drag together, so the page follows the fingers while zooming.
+    /// The two-finger swipe watches alongside them: a slow drag moves the page, a quick one turns it.
     /// In study mode the canvas' own gestures never hold them back.
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
         if let studyCanvas, let view = other.view, view.isDescendant(of: studyCanvas) { return true }
+        if let swipe = gestureRecognizer as? UISwipeGestureRecognizer, zoomedSwipes.contains(swipe) {
+            return other == pan || other == pinch
+        }
+        if let swipe = other as? UISwipeGestureRecognizer, zoomedSwipes.contains(swipe) {
+            return gestureRecognizer == pan || gestureRecognizer == pinch
+        }
         return (gestureRecognizer is UIPinchGestureRecognizer && other == pan)
             || (gestureRecognizer == pan && other is UIPinchGestureRecognizer)
     }
@@ -236,6 +256,15 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func handleSwipe(_ swipe: UISwipeGestureRecognizer) { onSwipe?(swipe.direction) }
+
+    /// Stops the drag and pinch that ran with the swipe, so they don't move the next page.
+    @objc private func handleZoomedSwipe(_ swipe: UISwipeGestureRecognizer) {
+        for gesture in [pan, pinch] where gesture.isEnabled {
+            gesture.isEnabled = false
+            gesture.isEnabled = true
+        }
+        onSwipe?(swipe.direction)
+    }
     @objc private func handleTap() { onTap?() }
     @objc private func handleDoubleTap(_ tap: UITapGestureRecognizer) { onDoubleTap?(tap.location(in: self)) }
 
