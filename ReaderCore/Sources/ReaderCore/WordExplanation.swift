@@ -58,7 +58,8 @@ public enum GeminiExplainer {
     public static func request(term: String, context: String?, apiKey: String) -> URLRequest {
         var request = URLRequest(url: endpoint.appendingPathComponent("\(model):generateContent"))
         request.httpMethod = "POST"
-        request.timeoutInterval = 30
+        // The free tier can be slow at busy times.
+        request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // The key goes in a header, never in the URL.
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")

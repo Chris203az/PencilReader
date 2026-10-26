@@ -59,17 +59,37 @@ final class APIKeyStore {
 enum WordExplainer {
     static func explain(term: String, context: String?, apiKey: String) async throws(ExplanationError) -> WordExplanation {
         let request = GeminiExplainer.request(term: term, context: context, apiKey: apiKey)
+        let start = Date()
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch let error as URLError {
+            log(start, "URLError \(error.code.rawValue) \(error.localizedDescription)")
             throw GeminiExplainer.error(for: error)
         } catch {
+            log(start, "errore \(error)")
             throw .unavailable
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        log(start, "HTTP \(status) \(String(decoding: data.prefix(600), as: UTF8.self))")
         guard status == 200 else { throw GeminiExplainer.error(status: status, body: data) }
         return try GeminiExplainer.parse(data)
+    }
+
+    /// Duration and outcome of each request (never the key), in Documents/diagnostica-ia.txt. Debug builds only.
+    private static func log(_ start: Date, _ message: String) {
+        #if DEBUG
+        let line = "\(Date().formatted(date: .numeric, time: .standard)) \(String(format: "%.1f", Date().timeIntervalSince(start)))s \(message)\n"
+        guard let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("diagnostica-ia.txt") else { return }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? Data(line.utf8).write(to: url)
+        }
+        #endif
     }
 }

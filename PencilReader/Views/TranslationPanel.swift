@@ -13,6 +13,7 @@ struct TranslationPanel: View {
     /// Set to start a request; changing it cancels the running one.
     @State private var askID: UUID?
     @State private var showAISettings = false
+    @State private var slowAnswer = false
 
     private enum AIState: Equatable {
         case idle, loading
@@ -75,6 +76,7 @@ struct TranslationPanel: View {
                 return
             }
             ai = .loading
+            slowAnswer = false
             do {
                 ai = .done(try await WordExplainer.explain(term: selection.text, context: selection.context?.text,
                                                            apiKey: key))
@@ -106,7 +108,12 @@ struct TranslationPanel: View {
             Divider()
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Sto chiedendo all'IA…").foregroundStyle(.secondary)
+                Text(slowAnswer ? "Ci sta mettendo un po', attendi…" : "Sto chiedendo all'IA…").foregroundStyle(.secondary)
+            }
+            .task {
+                // Reassures when the free tier is slow.
+                guard (try? await Task.sleep(for: .seconds(8))) != nil else { return }
+                slowAnswer = true
             }
         case .done(let explanation):
             Divider()
