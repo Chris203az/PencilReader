@@ -7,6 +7,8 @@ import UIKit
 struct TranslationPanel: View {
     let selection: ReaderModel.Selection
     let onClose: () -> Void
+    /// Called when the AI is asked about the term.
+    var onAskAI: () -> Void = {}
     @State private var showDictionary = false
     @State private var keys = APIKeyStore.shared
     @State private var ai = AIState.idle
@@ -97,6 +99,7 @@ struct TranslationPanel: View {
             return
         }
         askID = UUID()
+        onAskAI()
     }
 
     /// Only the explanation itself: no model name or other details.

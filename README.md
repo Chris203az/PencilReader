@@ -35,7 +35,7 @@ App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la 
 
 ### Parole e ripasso
 
-- Parole cercate salvate per libro, esportabili in un file di testo.
+- Parole cercate salvate per libro, esportabili in un file di testo, con un pulsante per eliminarle tutte (le parole chieste all'IA non vengono salvate).
 - Ripasso a flashcard delle parole salvate, con ripetizione spaziata (SM-2 semplificato) e badge delle parole da ripassare oggi.
 
 ### Esportazione

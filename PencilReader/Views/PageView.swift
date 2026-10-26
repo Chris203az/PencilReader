@@ -75,7 +75,8 @@ struct PageView: View {
                                 nightInk: theme == .night)
 
                     if let selection = model.selection {
-                        TranslationPanel(selection: selection, onClose: model.clearSelection)
+                        TranslationPanel(selection: selection, onClose: model.clearSelection,
+                                         onAskAI: model.forgetSelectedWord)
                             .frame(width: panelWidth)
                             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { panelHeight = $0 }
                             .position(panelCenter(for: selection.anchor.denormalized(in: frame), in: geo.size))
