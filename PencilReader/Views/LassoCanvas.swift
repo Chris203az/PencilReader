@@ -38,7 +38,7 @@ struct LassoCanvas: UIViewRepresentable {
         view.onPan = onPan
         view.onDoubleTap = onDoubleTap
         if let study {
-            let canvas = view.showMarks(of: study.model, editable: study.isActive)
+            let canvas = view.showMarks(of: study.model, page: study.page, editable: study.isActive)
             canvas.setNight(nightInk)
             canvas.update(page: study.page, frame: study.frame, text: study.text)
         } else {
@@ -158,10 +158,24 @@ final class LassoCanvasView: UIView, UIGestureRecognizerDelegate {
     /// a SwiftUI update, and taking a PencilKit canvas out of the window there sent SwiftUI into
     /// an endless update (the app froze). With study mode off it only shows the marks and lets the
     /// Pencil through to the lasso; the marks are saved just after the update, for the same reason.
-    func showMarks(of study: StudyModel, editable: Bool) -> StudyCanvasView {
+    /// Each page gets a canvas of its own: given the marks of the next page, PencilKit kept
+    /// showing the last highlight of the old one until the next stroke. The old canvas leaves
+    /// the window just after the update, once its marks are saved.
+    func showMarks(of study: StudyModel, page: Int, editable: Bool) -> StudyCanvasView {
         let canvas: StudyCanvasView
-        if let studyCanvas, studyCanvas.study === study {
+        if let studyCanvas, studyCanvas.study === study, studyCanvas.page == nil || studyCanvas.page == page {
             canvas = studyCanvas
+        } else if let old = studyCanvas, old.study === study, let oldPage = old.page {
+            old.isHidden = true
+            canvas = StudyCanvasView(study: study)
+            canvas.frame = bounds
+            addSubview(canvas)
+            studyCanvas = canvas
+            DispatchQueue.main.async {
+                study.save(old.drawing, page: oldPage)
+                study.canUndo = false
+                old.removeFromSuperview()
+            }
         } else {
             studyCanvas?.isHidden = true
             canvas = StudyCanvasView(study: study)
