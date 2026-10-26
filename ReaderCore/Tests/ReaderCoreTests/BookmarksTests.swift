@@ -19,9 +19,11 @@ struct BookmarksTests {
 
     @Test func toggleAddsThenRemoves() {
         var list = BookmarkList()
-        #expect(list.toggle(page: 7, date: day))
+        let added = list.toggle(page: 7, date: day)
+        #expect(added)
         #expect(list.contains(page: 7))
-        #expect(!list.toggle(page: 7, date: day))
+        let stillThere = list.toggle(page: 7, date: day)
+        #expect(!stillThere)
         #expect(list.isEmpty)
     }
 
