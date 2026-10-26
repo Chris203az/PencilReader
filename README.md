@@ -12,7 +12,7 @@ App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la 
 
 - Riconoscimento del testo con Vision, una volta per pagina, anche per tutto il libro in sottofondo.
 - Si cerchia una parola con la Pencil: traduzione EN→IT con il framework Translation di Apple, frase intera con le parole cerchiate evidenziate.
-- Ricerca di una parola in tutto il libro, zoom con le dita, uscita dal libro scorrendo verso il basso.
+- Ricerca di una parola in tutto il libro, zoom con le dita (da zoomati, uno scorrimento rapido a due dita cambia pagina), uscita dal libro scorrendo verso il basso.
 - Tema della pagina: Normale, Seppia, Notte o come il sistema.
 - Segnalibri con nome, elenco e filtro nella griglia delle pagine (nastrino sulle anteprime).
 - Ritaglio dello schermo: si disegna attorno a una zona con la Pencil e il rettangolo viene copiato negli appunti (mai salvato in galleria).
