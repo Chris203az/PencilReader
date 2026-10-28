@@ -41,6 +41,7 @@ struct LibraryView: View {
     @State private var showWords = false
     @State private var showReview = false
     @State private var showStats = false
+    @State private var showAISettings = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 24)]
 
@@ -93,6 +94,9 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { library.reload() } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button("Impostazioni IA", systemImage: "sparkles") { showAISettings = true }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -111,6 +115,9 @@ struct LibraryView: View {
                     .padding(20)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
             }
+        }
+        .sheet(isPresented: $showAISettings) {
+            AISettingsView().presentationSizing(.form)
         }
         .sheet(isPresented: $showWords) {
             WordsView(currentDocument: nil) { word in

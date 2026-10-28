@@ -27,6 +27,8 @@ final class ReaderModel {
         /// Shown separately only when it couldn't be located in the sentence.
         var termTranslation: String?
         var error: String?
+        /// The lookup saved in the word list, so it can be taken back.
+        var savedWord: WordList.Addition?
     }
 
     let document: LibraryDocument
@@ -180,6 +182,13 @@ final class ReaderModel {
 
     func clearSelection() { selection = nil }
 
+    /// Words asked to the AI don't stay among the searched words.
+    func forgetSelectedWord() {
+        guard let addition = selection?.savedWord else { return }
+        wordList.undo(addition)
+        selection?.savedWord = nil
+    }
+
     /// Called by `.translationTask` every time the configuration is (re)triggered.
     func translate(using session: TranslationSession) async {
         guard let current = selection, current.translation == nil else { return }
@@ -205,7 +214,7 @@ final class ReaderModel {
             selection?.translation = result.text
             selection?.highlight = result.highlight
             selection?.termTranslation = result.highlight == nil ? term : nil
-            wordList.add(SavedWord(term: current.text,
+            selection?.savedWord = wordList.add(SavedWord(term: current.text,
                                    translation: result.highlight.map { String(result.text[$0]) } ?? term,
                                    sentence: current.context?.text,
                                    sentenceTranslation: current.context == nil ? nil : result.text,

@@ -16,6 +16,7 @@ struct WordsView: View {
     @State private var onlyThisBook = true
     @State private var filter = ""
     @State private var showReview = false
+    @State private var confirmsDeleteAll = false
 
     private var shown: [SavedWord] {
         var words = wordList.words
@@ -27,6 +28,11 @@ struct WordsView: View {
             }
         }
         return words
+    }
+
+    private var deleteAllTitle: String {
+        if !filter.trimmingCharacters(in: .whitespaces).isEmpty { return "Elimina le parole trovate" }
+        return currentDocument != nil && onlyThisBook ? "Elimina tutte le parole di questo libro" : "Elimina tutte le parole"
     }
 
     var body: some View {
@@ -54,6 +60,11 @@ struct WordsView: View {
                     let words = shown
                     wordList.delete(Set(offsets.map { words[$0].id }))
                 }
+                if !shown.isEmpty {
+                    Section {
+                        Button(deleteAllTitle, systemImage: "trash", role: .destructive) { confirmsDeleteAll = true }
+                    }
+                }
             }
             .overlay {
                 if shown.isEmpty {
@@ -63,6 +74,13 @@ struct WordsView: View {
                                                              ? "Le parole che cerchi con la Pencil compaiono qui."
                                                              : "Nessuna parola salvata contiene “\(filter)”."))
                 }
+            }
+            .confirmationDialog(deleteAllTitle + "?", isPresented: $confirmsDeleteAll, titleVisibility: .visible) {
+                Button("Elimina \(shown.count) \(shown.count == 1 ? "parola" : "parole")", role: .destructive) {
+                    wordList.delete(Set(shown.map(\.id)))
+                }
+            } message: {
+                Text("Non si può annullare.")
             }
             .searchable(text: $filter, prompt: "Filtra parole")
             .navigationTitle("Parole cercate")
