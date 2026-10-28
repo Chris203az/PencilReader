@@ -146,8 +146,10 @@ public enum GeminiExplainer {
 
             Rispondi in JSON con due campi:
             \(meaning)
-            - "\(contextKey)": cosa significa e che ruolo ha in questa frase, collegandolo \
-            all'argomento del testo, in 1-3 frasi.
+            - "\(contextKey)": cosa vuole dire davvero l'autore in questa frase: l'idea, il concetto \
+            tecnico o il fenomeno che sta descrivendo e perché il termine conta lì, collegandolo \
+            all'argomento del testo, in 1-3 frasi. Non tradurre né parafrasare la frase parola per \
+            parola: interpretala e spiegane il senso, come farebbe un professore a uno studente.
             """
     }
 
