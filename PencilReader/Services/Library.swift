@@ -161,7 +161,7 @@ final class Library {
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
         do {
             let destination = folder.appending(path: "document.pdf")
-            try fileManager.copyItem(at: url, to: destination)
+            try copyCoordinated(from: url, to: destination)
             guard let pdf = PDFDocument(url: destination), pdf.pageCount > 0 else {
                 throw CocoaError(.fileReadCorruptFile)
             }
@@ -178,6 +178,27 @@ final class Library {
             try? fileManager.removeItem(at: folder)
             throw error
         }
+    }
+
+    /// Copies a file picked from Files. A file in iCloud Drive or another provider may not be on
+    /// the iPad yet: a plain copy then fails with "no such file". The file coordinator downloads it
+    /// first and hands back a readable URL.
+    private func copyCoordinated(from url: URL, to destination: URL) throws {
+        var coordinatorError: NSError?
+        var copyError: Error?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: .withoutChanges, error: &coordinatorError) { readable in
+            do {
+                try fileManager.copyItem(at: readable, to: destination)
+            } catch {
+                // Some providers refuse a file copy but still let the data be read.
+                do {
+                    try Data(contentsOf: readable).write(to: destination, options: .atomic)
+                } catch {
+                    copyError = error
+                }
+            }
+        }
+        if let error = copyError ?? coordinatorError { throw error }
     }
 
     /// Stores scanned or photographed pages as JPEG files.
