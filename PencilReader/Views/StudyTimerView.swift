@@ -21,6 +21,9 @@ struct StudyTimerButton: View {
     @ViewBuilder private var label: some View {
         if timer.isIdle {
             Image(systemName: "timer")
+        } else if timer.isSessionOver {
+            Image(systemName: "checkmark.circle")
+                .foregroundStyle(.green)
         } else {
             HStack(spacing: 4) {
                 Image(systemName: timer.phase.isBreak ? "cup.and.saucer.fill" : "timer")
@@ -58,44 +61,26 @@ private struct StudyTimerPanel: View {
     let bookID: UUID
     @Environment(StudyTimer.self) private var timer
     @Environment(ReadingStats.self) private var stats
+    @State private var showReadingTime = false
 
     var body: some View {
         @Bindable var timer = timer
         VStack(spacing: 18) {
-            VStack(spacing: 4) {
-                Text(timer.phaseName)
-                    .font(.headline)
-                    .foregroundStyle(timer.phase.tint)
-                StudyTimerTime(timer: timer)
-                    .font(.system(size: 54, weight: .light))
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if timer.isSessionOver {
+                sessionOver
+            } else {
+                VStack(spacing: 4) {
+                    Text(timer.phaseName)
+                        .font(.headline)
+                        .foregroundStyle(timer.phase.tint)
+                    StudyTimerTime(timer: timer)
+                        .font(.system(size: 54, weight: .light))
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                controls
             }
-
-            HStack(spacing: 12) {
-                if timer.isRunning {
-                    Button("Pausa", systemImage: "pause.fill") { timer.pause() }
-                        .buttonStyle(.borderedProminent)
-                } else {
-                    Button(timer.timer.isWaiting ? "Avvia" : "Riprendi", systemImage: "play.fill") { timer.start() }
-                        .buttonStyle(.borderedProminent)
-                }
-                Button(timer.phase.isBreak ? "Salta la pausa" : "Salta", systemImage: "forward.end.fill") {
-                    timer.skip()
-                }
-                .buttonStyle(.bordered)
-                Menu {
-                    Button("Ricomincia questo blocco", systemImage: "arrow.counterclockwise") { timer.restartPhase() }
-                    Button("Azzera il ciclo", systemImage: "arrow.uturn.backward", role: .destructive) { timer.reset() }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .frame(minHeight: 22)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Altro")
-            }
-            .tint(timer.phase.tint)
 
             if timer.notificationsDenied {
                 Label("Le notifiche sono disattivate: la fine del blocco si vede solo nell'app. Puoi attivarle in Impostazioni › Notifiche › PencilReader.",
@@ -103,6 +88,8 @@ private struct StudyTimerPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            readingTime
 
             Divider()
 
@@ -128,6 +115,12 @@ private struct StudyTimerPanel: View {
 
             DisclosureGroup("Durate") {
                 VStack(spacing: 4) {
+                    if timer.session != nil {
+                        Text("Durante la sessione valgono le durate adattate al tempo scelto; queste tornano dopo.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     Stepper("Studio: \(timer.settings.focusMinutes) min",
                             value: $timer.settings.focusMinutes, in: PomodoroSettings.focusRange, step: 5)
                     Stepper("Pausa breve: \(timer.settings.shortBreakMinutes) min",
@@ -149,11 +142,111 @@ private struct StudyTimerPanel: View {
         .onAppear { timer.refresh() }
     }
 
+    private var controls: some View {
+        HStack(spacing: 12) {
+            if timer.isRunning {
+                Button("Pausa", systemImage: "pause.fill") { timer.pause() }
+                    .buttonStyle(.borderedProminent)
+            } else {
+                Button(timer.timer.isWaiting ? "Avvia" : "Riprendi", systemImage: "play.fill") { timer.start() }
+                    .buttonStyle(.borderedProminent)
+            }
+            Button(timer.phase.isBreak ? "Salta la pausa" : "Salta", systemImage: "forward.end.fill") {
+                timer.skip()
+            }
+            .buttonStyle(.bordered)
+            Menu {
+                Button("Ricomincia questo blocco", systemImage: "arrow.counterclockwise") { timer.restartPhase() }
+                if timer.session != nil {
+                    Button("Ricomincia la sessione", systemImage: "arrow.uturn.backward") { timer.reset() }
+                    Button("Termina la sessione", systemImage: "xmark", role: .destructive) { timer.endSession() }
+                } else {
+                    Button("Azzera il ciclo", systemImage: "arrow.uturn.backward", role: .destructive) { timer.reset() }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(minHeight: 22)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Altro")
+        }
+        .tint(timer.phase.tint)
+    }
+
+    /// The session's time is used up: start another one or go on with single blocks.
+    private var sessionOver: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.green)
+            Text(timer.phaseName)
+                .font(.headline)
+            if let plan = timer.session?.plan {
+                Text("Hai finito la sessione da \(ReadingTimePicker.duration(plan.totalMinutes)).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 12) {
+                Button("Nuova sessione", systemImage: "hourglass") {
+                    timer.endSession()
+                    showReadingTime = true
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Continua a blocchi", systemImage: "timer") { timer.endSession() }
+                    .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    /// Reading for a chosen time: the session under way, or the form to start one.
+    @ViewBuilder private var readingTime: some View {
+        if let session = timer.session {
+            if !session.isOver {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Sessione da \(ReadingTimePicker.duration(session.plan.totalMinutes))",
+                              systemImage: "hourglass")
+                        if let end = timer.sessionEnd(from: context.date) {
+                            Text(sessionEndText(end, now: context.date))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        } else {
+            DisclosureGroup("Leggi per un tempo preciso", isExpanded: $showReadingTime) {
+                ReadingTimePicker { minutes in
+                    timer.startSession(minutes: minutes)
+                    showReadingTime = false
+                }
+                .padding(.top, 6)
+            }
+        }
+    }
+
+    private func sessionEndText(_ end: Date, now: Date) -> String {
+        if timer.isRunning {
+            return "Finisce verso le \(end.formatted(date: .omitted, time: .shortened))"
+        }
+        let minutes = Int((end.timeIntervalSince(now) / 60).rounded(.up))
+        return "Mancano \(ReadingTimePicker.duration(minutes)), timer fermo"
+    }
+
     private var subtitle: String {
-        let blocks = timer.settings.blocksBeforeLongBreak
+        let settings = timer.activeSettings
+        let next = timer.timer.isLastBlock
+            ? "ultimo blocco"
+            : "poi \(StudyTimer.name(of: timer.timer.nextPhase(settings: timer.settings)).lowercased())"
         switch timer.phase {
         case .focus:
-            return "Blocco \(min(timer.blockNumber, blocks)) di \(blocks) · poi \(StudyTimer.name(of: timer.timer.nextPhase(settings: timer.settings)).lowercased())"
+            if let session = timer.session {
+                return "Blocco \(session.blocksDone + 1) di \(session.plan.blocks) · \(next)"
+            }
+            let blocks = settings.blocksBeforeLongBreak
+            return "Blocco \(min(timer.blockNumber, blocks)) di \(blocks) · \(next)"
         case .shortBreak, .longBreak:
             return "Alzati, bevi qualcosa, guarda lontano dallo schermo"
         }
