@@ -18,6 +18,7 @@ private let fragments = [
 struct HighlightGroupingTests {
     @Test func requestListsFragmentsWithTheirKindAndKeyInHeader() throws {
         let request = HighlightGrouping.request(fragments: fragments, kindNames: ["key": "Concetto chiave"],
+                                                pageText: "1. Specific impulse is the thrust\n2. frozen flow",
                                                 apiKey: "SECRET")
         #expect(request.value(forHTTPHeaderField: "x-goog-api-key") == "SECRET")
         #expect(request.url?.absoluteString.contains("SECRET") == false)
@@ -26,6 +27,9 @@ struct HighlightGroupingTests {
         let text = (contents?.first?["parts"] as? [[String: Any]])?.first?["text"] as? String ?? ""
         #expect(text.contains("0. [Concetto chiave] Specific impulse is the thrust"))
         #expect(text.contains("1. [formula] Isp = F / (mdot g0)"))
+        // The whole page goes first, so the model sees the list the pieces belong to.
+        #expect(text.hasPrefix("Testo completo della pagina:"))
+        #expect(text.contains("2. frozen flow"))
         let config = body["generationConfig"] as? [String: Any]
         #expect(config?["responseMimeType"] as? String == "application/json")
     }
@@ -65,6 +69,11 @@ struct HighlightGroupingTests {
         var changed = fragments
         changed[3] = .init(id: 4, kind: "review", text: "frozen flows")
         #expect(HighlightGrouping.signature(of: changed) != same)
+    }
+
+    @Test func withoutPageTextOnlyTheFragmentsAreSent() {
+        let text = HighlightGrouping.prompt(fragments: fragments, kindNames: [:], pageText: "  ")
+        #expect(text.hasPrefix("Frammenti evidenziati"))
     }
 
     @Test func asksOnlyWhenTwoPassagesShareAKind() {

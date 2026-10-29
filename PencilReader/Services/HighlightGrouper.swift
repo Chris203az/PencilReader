@@ -97,7 +97,8 @@ final class HighlightGrouper {
         if HighlightGrouping.needsAsking(fragments) {
             guard let apiKey else { return .none }
             do {
-                groups = try await WordExplainer.group(fragments, apiKey: apiKey)
+                let pageText = text?.blocks.map(\.text).joined(separator: "\n")
+                groups = try await WordExplainer.group(fragments, pageText: pageText, apiKey: apiKey)
             } catch {
                 return .none
             }
@@ -112,10 +113,12 @@ extension WordExplainer {
     /// The meaning of each highlighter color, as the AI reads it.
     static let kindNames = Dictionary(uniqueKeysWithValues: StudyColor.allCases.map { ($0.rawValue, $0.label) })
 
-    static func group(_ fragments: [HighlightGrouping.Fragment], apiKey: String) async throws(ExplanationError) -> [HighlightGrouping.Group] {
+    static func group(_ fragments: [HighlightGrouping.Fragment], pageText: String?,
+                      apiKey: String) async throws(ExplanationError) -> [HighlightGrouping.Group] {
         try await firstAnswer { model in
             try await HighlightGrouping.parse(send(HighlightGrouping.request(fragments: fragments, kindNames: kindNames,
-                                                                             apiKey: apiKey, model: model)),
+                                                                             pageText: pageText, apiKey: apiKey,
+                                                                             model: model)),
                                               fragments: fragments)
         }
     }
