@@ -43,9 +43,16 @@ public enum HighlightGrouping {
         }
     }
 
-    /// Stable across launches (unlike `Hasher`): FNV-1a over the kinds and texts.
+    /// Bumped when the way of asking changes, so pages answered before are asked again.
+    static let version = 2
+
+    /// Stable across launches (unlike `Hasher`): FNV-1a over the kinds and texts, and the version.
     public static func signature(of fragments: [Fragment]) -> String {
         var hash: UInt64 = 0xcbf29ce484222325
+        for byte in "v\(version)\u{2}".utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 0x100000001b3
+        }
         for fragment in fragments {
             for byte in "\(fragment.id)\u{1}\(fragment.kind)\u{1}\(fragment.text)\u{2}".utf8 {
                 hash ^= UInt64(byte)
@@ -72,15 +79,21 @@ public enum HighlightGrouping {
     static let titleKey = "titolo"
 
     /// `kindNames` gives the meaning of each kind to the model, e.g. "key" → "Concetto chiave".
-    public static func request(fragments: [Fragment], kindNames: [String: String], apiKey: String,
-                               model: String = GeminiExplainer.model) -> URLRequest {
-        GeminiExplainer.post(body(fragments: fragments, kindNames: kindNames), apiKey: apiKey, model: model)
+    /// `pageText` is the whole page, so the model sees how the pieces sit in it (a list, a definition).
+    public static func request(fragments: [Fragment], kindNames: [String: String], pageText: String?,
+                               apiKey: String, model: String = GeminiExplainer.model) -> URLRequest {
+        GeminiExplainer.post(body(fragments: fragments, kindNames: kindNames, pageText: pageText),
+                             apiKey: apiKey, model: model)
     }
 
-    static func body(fragments: [Fragment], kindNames: [String: String]) -> [String: Any] {
+    /// Enough for a dense page; longer text is cut.
+    static let pageTextLimit = 8000
+
+    static func body(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> [String: Any] {
         [
             "systemInstruction": ["parts": [["text": systemPrompt]]],
-            "contents": [["role": "user", "parts": [["text": prompt(fragments: fragments, kindNames: kindNames)]]]],
+            "contents": [["role": "user", "parts": [["text": prompt(fragments: fragments, kindNames: kindNames,
+                                                                    pageText: pageText)]]]],
             "generationConfig": [
                 "responseMimeType": "application/json",
                 "responseSchema": [
@@ -107,26 +120,45 @@ public enum HighlightGrouping {
     }
 
     static let systemPrompt = """
-        Aiuti uno studente universitario italiano di ingegneria a ordinare ciò che ha evidenziato \
-        in una pagina di un libro tecnico in inglese. Ogni frammento evidenziato ha una categoria \
-        (il colore dell'evidenziatore). Spesso un'unica idea è evidenziata in più pezzi staccati: \
-        una frase spezzata su due righe, una definizione e la sua precisazione poco dopo, una formula \
-        e il significato dei suoi simboli. Il tuo compito è decidere quali frammenti vanno uniti \
-        perché parlano dello stesso concetto e quali restano separati.
+        Aiuti uno studente universitario di ingegneria a ordinare ciò che ha evidenziato in una pagina \
+        di un libro tecnico. Ogni frammento evidenziato ha una categoria (il colore dell'evidenziatore). \
+        Lo studente evidenzia a pezzi: una frase che annuncia qualcosa e poi, più sotto, le parti di \
+        ciò che ha annunciato. Il tuo compito è ricostruire i concetti: unire i frammenti che insieme \
+        formano un'unica idea da studiare e lasciare separati quelli che parlano di cose diverse.
+        Ricevi anche il testo completo della pagina: usalo per capire la struttura (elenchi, \
+        definizioni, ipotesi, condizioni) e il ruolo di ogni frammento.
+        Unisci sempre:
+        - una frase introduttiva che annuncia un elenco o un numero di elementi (es. "si adottano due \
+        ipotesi:", "caratterizzate da:", "i vantaggi sono") con TUTTI gli elementi evidenziati di \
+        quell'elenco, anche se sono lontani nella pagina o in fondo all'elenco;
+        - i punti di uno stesso elenco numerato o puntato, anche senza frase introduttiva evidenziata;
+        - il nome di un elemento (es. "Regime stazionario:") con la sua spiegazione evidenziata;
+        - una definizione con le sue precisazioni, condizioni di validità o conseguenze;
+        - una frase spezzata su più righe o interrotta.
+        Lascia separati i frammenti che riguardano concetti diversi, anche se vicini.
         Regole: unisci solo frammenti della stessa categoria; ogni frammento deve comparire in \
-        esattamente un gruppo; non unire frammenti solo perché sono vicini o dello stesso argomento \
-        generale: devono esprimere la stessa idea. Nel dubbio, lasciali separati.
-        Per ogni gruppo scrivi un titolo in italiano di 2-6 parole che nomina il concetto, senza Markdown.
+        esattamente un gruppo.
+        Per ogni gruppo scrivi un titolo in italiano di 2-6 parole che nomina il concetto (es. \
+        "Ipotesi del modello Q1D"), senza Markdown.
         """
 
-    static func prompt(fragments: [Fragment], kindNames: [String: String]) -> String {
+    static func prompt(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> String {
         let list = fragments.map { fragment in
             let kind = kindNames[fragment.kind] ?? fragment.kind
             let text = fragment.text.replacingOccurrences(of: "\n", with: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return "\(fragment.id). [\(kind)] \(text)"
         }.joined(separator: "\n")
-        return """
+        let page = (pageText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let context = page.isEmpty ? "" : """
+            Testo completo della pagina:
+            \"\"\"
+            \(page.prefix(pageTextLimit))
+            \"\"\"
+
+
+            """
+        return context + """
             Frammenti evidenziati, nell'ordine di lettura (numero. [categoria] testo):
             \(list)
 
