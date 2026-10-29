@@ -50,6 +50,9 @@ struct WordExplanationTests {
         #expect(text.contains("Termine inglese: \"stall\""))
         #expect(text.contains("Frase in cui compare: \"The wing reached the stall angle.\""))
         #expect(text.contains("in questa frase"))
+        // Asks for what the sentence means, not a literal translation of it.
+        #expect(text.contains("cosa vuole dire davvero"))
+        #expect(text.contains("Non tradurre"))
         // Asks for concrete data, not vague definitions.
         let system = ((body["systemInstruction"] as? [String: Any])?["parts"] as? [[String: Any]])?.first?["text"] as? String
         #expect(system?.contains("formula") == true)
