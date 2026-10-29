@@ -112,7 +112,7 @@ public enum GeminiExplainer {
 
     /// The explanation of a circled term, for any provider.
     public static func prompt(term: String, context: String?) -> AIPrompt {
-        AIPrompt(system: systemPrompt, user: prompt(term: term, context: context), json: true, schema: [
+        AIPrompt(system: systemPrompt, user: promptText(term: term, context: context), json: true, schema: [
             "type": "OBJECT",
             "properties": [
                 meaningKey: ["type": "STRING"],
@@ -135,7 +135,7 @@ public enum GeminiExplainer {
         Sii denso ma breve: niente frasi di riempimento, non ripetere la domanda.
         """
 
-    static func prompt(term: String, context: String?) -> String {
+    static func promptText(term: String, context: String?) -> String {
         let term = term.trimmingCharacters(in: .whitespacesAndNewlines)
         let sentence = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let meaning = """

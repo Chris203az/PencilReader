@@ -88,7 +88,7 @@ public enum HighlightGrouping {
 
     /// The question for any provider.
     public static func prompt(fragments: [Fragment], kindNames: [String: String], pageText: String?) -> AIPrompt {
-        AIPrompt(system: systemPrompt, user: prompt(fragments: fragments, kindNames: kindNames, pageText: pageText),
+        AIPrompt(system: systemPrompt, user: promptText(fragments: fragments, kindNames: kindNames, pageText: pageText),
                  json: true, schema: schema)
     }
 
@@ -143,7 +143,7 @@ public enum HighlightGrouping {
         "Ipotesi del modello Q1D"), senza Markdown.
         """
 
-    static func prompt(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> String {
+    static func promptText(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> String {
         let list = fragments.map { fragment in
             let kind = kindNames[fragment.kind] ?? fragment.kind
             let text = fragment.text.replacingOccurrences(of: "\n", with: " ")
