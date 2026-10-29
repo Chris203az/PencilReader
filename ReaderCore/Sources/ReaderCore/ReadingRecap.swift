@@ -90,16 +90,18 @@ public enum RecapWriter {
     static let ideaKey = "idea"
     static let pointsKey = "punti"
 
-    static let schema: [String: Any] = [
-        "type": "OBJECT",
-        "properties": [
-            titleKey: ["type": "STRING"],
-            ideaKey: ["type": "STRING"],
-            pointsKey: ["type": "ARRAY", "items": ["type": "STRING"]]
-        ],
-        "required": [titleKey, ideaKey, pointsKey],
-        "propertyOrdering": [titleKey, ideaKey, pointsKey]
-    ]
+    static var schema: [String: Any] {
+        [
+            "type": "OBJECT",
+            "properties": [
+                titleKey: ["type": "STRING"],
+                ideaKey: ["type": "STRING"],
+                pointsKey: ["type": "ARRAY", "items": ["type": "STRING"]]
+            ],
+            "required": [titleKey, ideaKey, pointsKey],
+            "propertyOrdering": [titleKey, ideaKey, pointsKey]
+        ]
+    }
 
     /// `pages` are the zero-based page numbers with their recognized text, in order.
     public static func prompt(pages: [(page: Int, text: String)]) -> AIPrompt {
