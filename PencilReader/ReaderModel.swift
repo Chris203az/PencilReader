@@ -118,8 +118,13 @@ final class ReaderModel {
 
     /// Sends the highlights of a page the reader has finished with to the AI, to join the pieces of one idea.
     func groupHighlights(of page: Int) {
-        HighlightGrouper.shared.pageLeft(page, of: document.id, aspect: pageAspect(page),
-                                         ocrURL: library.ocrURL(of: document, page: page))
+        HighlightGrouper.shared.pageLeft(page, of: document.id, info: highlightPage)
+    }
+
+    /// What the AI's compacting needs to read a page's highlights.
+    func highlightPage(_ index: Int) -> HighlightPage? {
+        guard (0..<pageCount).contains(index), let aspect = pageAspect(index) else { return nil }
+        return HighlightPage(aspect: aspect, ocrURL: library.ocrURL(of: document, page: index))
     }
 
     func nextPage() { showPage(pageIndex + 1) }

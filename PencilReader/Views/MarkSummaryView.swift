@@ -100,51 +100,57 @@ struct SummaryEntry: Identifiable, Sendable {
     }
 }
 
-/// What the summary shows for highlights: a zone alone, or the zones of one page that the AI
-/// found to say the same thing, with the name it gave the idea.
+/// What the summary shows for highlights: a zone alone, or the zones that the AI found to say
+/// the same thing (on one page or on nearby pages), with the name and synthesis it gave the idea.
 enum SummaryItem: Identifiable {
     case single(SummaryEntry)
-    case group(title: String, entries: [SummaryEntry])
+    case group(title: String, summary: String, entries: [SummaryEntry])
 
     var id: String {
         switch self {
         case .single(let entry): entry.id
-        case .group(_, let entries): "g" + entries.map(\.id).joined(separator: ",")
+        case .group(_, _, let entries): "g" + entries.map(\.id).joined(separator: ",")
         }
     }
 
     var kind: SummaryKind {
         switch self {
         case .single(let entry): entry.kind
-        case .group(_, let entries): entries[0].kind
+        case .group(_, _, let entries): entries[0].kind
         }
     }
 
-    /// Each page's entries in order, with the AI's groups of more than one zone in place of
-    /// their zones (at the first one), when the page's highlights haven't changed since.
-    static func items(_ entries: [SummaryEntry], groups: [Int: HighlightGrouping.Page]) -> [SummaryItem] {
+    /// The entries in page and reading order, with each concept of the book in place of its zones
+    /// (at the first one). A concept keeps only the passages still marked as when it was made;
+    /// with fewer than two left, they show alone.
+    static func items(_ entries: [SummaryEntry], book: HighlightGrouping.Book?) -> [SummaryItem] {
+        let ordered = entries.sorted { ($0.page, $0.index) < ($1.page, $1.index) }
+        guard let book, !book.concepts.isEmpty else { return ordered.map(SummaryItem.single) }
+        var byKey: [String: SummaryEntry] = [:]
+        for (_, onPage) in Dictionary(grouping: ordered, by: \.page) {
+            // The same passages, in the same order, as `HighlightGrouper.fragments` keys them.
+            let passages = onPage.filter { $0.kind.isHighlight && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            for (entry, fragment) in zip(passages, HighlightGrouper.fragments(of: passages)) {
+                byKey[fragment.key] = entry
+            }
+        }
+        var conceptOf: [String: Int] = [:]
+        var groups: [(concept: HighlightGrouping.Concept, entries: [SummaryEntry])] = []
+        for concept in book.concepts {
+            let found = concept.keys.compactMap { byKey[$0] }.filter { conceptOf[$0.id] == nil }
+            guard found.count > 1 else { continue }
+            for entry in found { conceptOf[entry.id] = groups.count }
+            groups.append((concept, found.sorted { ($0.page, $0.index) < ($1.page, $1.index) }))
+        }
         var items: [SummaryItem] = []
-        for (page, onPage) in Dictionary(grouping: entries, by: \.page).sorted(by: { $0.key < $1.key }) {
-            let ordered = onPage.sorted { $0.index < $1.index }
-            guard let saved = groups[page],
-                  saved.signature == HighlightGrouping.signature(of: HighlightGrouper.fragments(of: ordered))
-            else {
-                items += ordered.map(SummaryItem.single)
+        for entry in ordered {
+            guard let index = conceptOf[entry.id] else {
+                items.append(.single(entry))
                 continue
             }
-            let byIndex = Dictionary(uniqueKeysWithValues: ordered.map { ($0.index, $0) })
-            var groupOf: [Int: HighlightGrouping.Group] = [:]
-            for group in saved.groups where group.fragmentIDs.count > 1 {
-                for id in group.fragmentIDs { groupOf[id] = group }
-            }
-            for entry in ordered {
-                guard let group = groupOf[entry.index] else {
-                    items.append(.single(entry))
-                    continue
-                }
-                if group.fragmentIDs.first == entry.index {
-                    items.append(.group(title: group.title, entries: group.fragmentIDs.compactMap { byIndex[$0] }))
-                }
+            let group = groups[index]
+            if group.entries[0].id == entry.id {
+                items.append(.group(title: group.concept.title, summary: group.concept.summary, entries: group.entries))
             }
         }
         return items
@@ -278,6 +284,11 @@ struct MarkSummaryView: View {
     }
 
     let document: LibraryDocument
+    /// The page open in the reader, around which the concepts are compacted by hand.
+    let currentPage: Int
+    let pageCount: Int
+    /// What the AI's compacting needs to read a page's highlights.
+    let pageInfo: @MainActor (Int) -> HighlightPage?
     /// The page, and whether to open the notebook beside it.
     let select: (Int, Bool) -> Void
 
@@ -287,9 +298,10 @@ struct MarkSummaryView: View {
     @State private var entries: [SummaryEntry]?
     @State private var notedPages: [Int] = []
     @State private var filter: Filter = .all
-    /// The AI's groups of each page.
-    @State private var groups: [Int: HighlightGrouping.Page] = [:]
+    /// The book's key concepts, as the AI compacted them.
+    @State private var book = HighlightGrouping.Book()
     @AppStorage("summaryJoinsHighlights") private var joinsHighlights = true
+    @State private var showsCompact = false
 
     private let columns = [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)]
 
@@ -311,7 +323,16 @@ struct MarkSummaryView: View {
             .navigationTitle("Riepilogo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if groups.values.contains(where: { $0.groups.contains { $0.fragmentIDs.count > 1 } }) {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Compatta", systemImage: "rectangle.compress.vertical") { showsCompact = true }
+                        .labelStyle(.titleAndIcon)
+                        .help("Unisce con l'IA le evidenziazioni dello stesso concetto in un intervallo di pagine")
+                        .popover(isPresented: $showsCompact) {
+                            CompactPanel(bookID: document.id, currentPage: currentPage, pageCount: pageCount,
+                                         pageInfo: pageInfo) { joinsHighlights = true }
+                        }
+                }
+                if !book.concepts.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
                         Toggle(isOn: $joinsHighlights) {
                             Label("Unisci con l'IA", systemImage: "sparkles")
@@ -327,7 +348,7 @@ struct MarkSummaryView: View {
         }
         .task { await load() }
         // The AI may answer for the open page while the summary is shown.
-        .onChange(of: HighlightGrouper.shared.revision) { groups = HighlightGroupStore.pages(of: document.id) }
+        .onChange(of: HighlightGrouper.shared.revision) { book = HighlightGroupStore.book(document.id) }
     }
 
     private func load() async {
@@ -338,7 +359,7 @@ struct MarkSummaryView: View {
                 ? library.imageURL(of: document, page: 0).deletingLastPathComponent() : nil)
         self.renderer = renderer
         notedPages = NoteStore.pagesWithNotes(of: document.id).sorted()
-        groups = HighlightGroupStore.pages(of: document.id)
+        book = HighlightGroupStore.book(document.id)
         let pages = AnnotationStore.pagesWithMarks(of: document.id).sorted()
         var ocr: [Int: URL] = [:]
         for page in pages { ocr[page] = library.ocrURL(of: document, page: page) }
@@ -346,7 +367,7 @@ struct MarkSummaryView: View {
     }
 
     private func content(_ entries: [SummaryEntry]) -> some View {
-        let byKind = Dictionary(grouping: SummaryItem.items(entries, groups: joinsHighlights ? groups : [:]), by: \.kind)
+        let byKind = Dictionary(grouping: SummaryItem.items(entries, book: joinsHighlights ? book : nil), by: \.kind)
         let kinds = SummaryKind.allCases.filter { byKind[$0] != nil }
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -415,12 +436,12 @@ struct MarkSummaryView: View {
                             SummaryCard(entry: entry, renderer: renderer)
                         }
                         .buttonStyle(.plain)
-                    case .group(let title, let members):
+                    case .group(let title, let summary, let members):
                         Button {
                             select(members[0].page, false)
                             dismiss()
                         } label: {
-                            SummaryGroupCard(title: title, entries: members, renderer: renderer)
+                            SummaryGroupCard(title: title, summary: summary, entries: members, renderer: renderer)
                         }
                         .buttonStyle(.plain)
                     }
@@ -517,15 +538,19 @@ private struct SummaryCard: View {
     }
 }
 
-/// Highlights of one page that the AI joined: the name of the idea, each piece cut out of the
-/// page one under the other, and their words read as one passage.
+/// Highlights that the AI joined into one concept: its name, its synthesis, each piece cut out
+/// of its page one under the other, and their words read as one passage.
 private struct SummaryGroupCard: View {
     let title: String
+    let summary: String
     let entries: [SummaryEntry]
     let renderer: SummaryRenderer?
 
     private var kind: SummaryKind { entries[0].kind }
-    private var page: Int { entries[0].page }
+    private var pages: String {
+        let first = entries[0].page + 1, last = entries.map(\.page).max()! + 1
+        return first == last ? "Pagina \(first)" : "Pagine \(first)–\(last)"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -534,20 +559,28 @@ private struct SummaryGroupCard: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(kind.color)
             }
+            if !summary.isEmpty {
+                Text(summary)
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(kind.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
             VStack(spacing: 4) {
                 ForEach(entries) { entry in
-                    SummaryCrop(entry: entry, renderer: renderer, maxHeight: 160)
+                    SummaryCrop(entry: entry, renderer: renderer, maxHeight: 140)
                 }
             }
             let text = entries.map(\.text).filter { !$0.isEmpty }.joined(separator: " … ")
             if !text.isEmpty {
                 Text(text)
-                    .font(.callout)
-                    .lineLimit(10)
+                    .font(summary.isEmpty ? .callout : .caption)
+                    .foregroundStyle(summary.isEmpty ? .primary : .secondary)
+                    .lineLimit(summary.isEmpty ? 10 : 5)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
-                Text("Pagina \(page + 1) · \(entries.count) parti unite dall'IA")
+                Text("\(pages) · \(entries.count) parti unite dall'IA")
                     .font(.caption.weight(.semibold))
                     .monospacedDigit()
                 Spacer()
@@ -565,7 +598,81 @@ private struct SummaryGroupCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Apre la pagina \(page + 1)")
+        .accessibilityHint("Apre la pagina \(entries[0].page + 1)")
+    }
+}
+
+/// Compacting by hand: a range of pages around the one open, at most `maxSpan` pages, sent to
+/// the AI even when nothing changed, with the outcome or the error shown.
+private struct CompactPanel: View {
+    let bookID: UUID
+    let currentPage: Int
+    let pageCount: Int
+    let pageInfo: @MainActor (Int) -> HighlightPage?
+    let done: () -> Void
+
+    /// Four pages before and after the open one.
+    static let maxSpan = 9
+
+    @State private var first = 0
+    @State private var last = 0
+    @State private var running = false
+    @State private var outcome: String?
+    @State private var failed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Compatta i concetti").font(.headline)
+            Text("L'IA unisce le evidenziazioni dello stesso concetto, anche tra pagine vicine, e ne scrive una sintesi breve.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Stepper("Dalla pagina \(first + 1)", value: $first, in: max(0, last - Self.maxSpan + 1)...last)
+                .monospacedDigit()
+            Stepper("Alla pagina \(last + 1)", value: $last, in: first...min(pageCount - 1, first + Self.maxSpan - 1))
+                .monospacedDigit()
+            Button {
+                Task { await compact() }
+            } label: {
+                HStack {
+                    if running { ProgressView() }
+                    Text(running ? "Compatto…" : "Compatta \(last - first + 1) pagine")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(running)
+            if let outcome {
+                Label(outcome, systemImage: failed ? "exclamationmark.triangle" : "checkmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(failed ? .red : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(20)
+        .frame(width: 340)
+        .onAppear {
+            first = max(0, currentPage - 3)
+            last = min(pageCount - 1, currentPage + 3)
+        }
+    }
+
+    private func compact() async {
+        running = true
+        outcome = nil
+        defer { running = false }
+        do {
+            let count = try await HighlightGrouper.shared.compact(pages: first...last, of: bookID, info: pageInfo)
+            failed = false
+            outcome = count == 0
+                ? "Nessun concetto da unire nelle pagine \(first + 1)–\(last + 1)."
+                : count == 1 ? "1 concetto unito nelle pagine \(first + 1)–\(last + 1)."
+                : "\(count) concetti uniti nelle pagine \(first + 1)–\(last + 1)."
+            done()
+        } catch {
+            failed = true
+            outcome = error.message
+        }
     }
 }
 
