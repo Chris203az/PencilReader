@@ -75,7 +75,7 @@ enum WordExplainer {
     }
 
     /// Tries the models in order, moving on when one is overloaded, too slow or out of quota.
-    private static func firstAnswer<T>(_ ask: (String) async throws -> T) async throws(ExplanationError) -> T {
+    static func firstAnswer<T>(_ ask: (String) async throws -> T) async throws(ExplanationError) -> T {
         var lastError = ExplanationError.unavailable
         let preferred = UserDefaults.standard.string(forKey: preferredModelKey) ?? GeminiExplainer.model
         for model in GeminiExplainer.models(preferred: preferred) {
@@ -90,7 +90,7 @@ enum WordExplainer {
         throw lastError
     }
 
-    private static func send(_ request: URLRequest) async throws(ExplanationError) -> Data {
+    static func send(_ request: URLRequest) async throws(ExplanationError) -> Data {
         let start = Date()
         let model = request.url?.lastPathComponent ?? ""
         let data: Data

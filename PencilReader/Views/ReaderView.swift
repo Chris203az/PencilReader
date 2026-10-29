@@ -68,7 +68,9 @@ struct ReaderView: View {
                 .translationTask(model.translationConfig) { session in
                     await model.translate(using: session)
                 }
-                .onChange(of: model.pageIndex) { _, page in
+                .onChange(of: model.pageIndex) { old, page in
+                    // The page just left counts as read: its highlights go to the AI.
+                    model.groupHighlights(of: old)
                     notebook?.show(page)
                     stats.pageShown(page, of: document.id)
                 }
@@ -165,7 +167,10 @@ struct ReaderView: View {
         }
         // Reading time counts only while the book is open and the app is in front.
         .onAppear { if scenePhase == .active { stats.startReading(document.id) } }
-        .onDisappear { stats.stopReading() }
+        .onDisappear {
+            stats.stopReading()
+            if let model { model.groupHighlights(of: model.pageIndex) }
+        }
         .onAppear {
             // Created once here, not in init: the model starts OCR as soon as it exists.
             if model == nil {
@@ -341,6 +346,8 @@ struct ReaderView: View {
                 // So the marks and the note being written show up to date in the summary.
                 study?.flush()
                 notebook?.flush()
+                // The page open now joins the summary's groups as soon as the AI answers.
+                model.groupHighlights(of: model.pageIndex)
                 showSummary = true
             }
             HintButton("Note del libro", systemImage: "note.text",

@@ -50,6 +50,9 @@ enum SummaryKind: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The three highlighter colors, whose passages the AI may join.
+    var isHighlight: Bool { self == .key || self == .formula || self == .review }
+
     /// Words sit above an underline: its zone reaches up by about a line of text.
     var textReach: CGFloat { self == .term ? 0.025 : 0 }
 
@@ -97,6 +100,57 @@ struct SummaryEntry: Identifiable, Sendable {
     }
 }
 
+/// What the summary shows for highlights: a zone alone, or the zones of one page that the AI
+/// found to say the same thing, with the name it gave the idea.
+enum SummaryItem: Identifiable {
+    case single(SummaryEntry)
+    case group(title: String, entries: [SummaryEntry])
+
+    var id: String {
+        switch self {
+        case .single(let entry): entry.id
+        case .group(_, let entries): "g" + entries.map(\.id).joined(separator: ",")
+        }
+    }
+
+    var kind: SummaryKind {
+        switch self {
+        case .single(let entry): entry.kind
+        case .group(_, let entries): entries[0].kind
+        }
+    }
+
+    /// Each page's entries in order, with the AI's groups of more than one zone in place of
+    /// their zones (at the first one), when the page's highlights haven't changed since.
+    static func items(_ entries: [SummaryEntry], groups: [Int: HighlightGrouping.Page]) -> [SummaryItem] {
+        var items: [SummaryItem] = []
+        for (page, onPage) in Dictionary(grouping: entries, by: \.page).sorted(by: { $0.key < $1.key }) {
+            let ordered = onPage.sorted { $0.index < $1.index }
+            guard let saved = groups[page],
+                  saved.signature == HighlightGrouping.signature(of: HighlightGrouper.fragments(of: ordered))
+            else {
+                items += ordered.map(SummaryItem.single)
+                continue
+            }
+            let byIndex = Dictionary(uniqueKeysWithValues: ordered.map { ($0.index, $0) })
+            var groupOf: [Int: HighlightGrouping.Group] = [:]
+            for group in saved.groups where group.fragmentIDs.count > 1 {
+                for id in group.fragmentIDs { groupOf[id] = group }
+            }
+            for entry in ordered {
+                guard let group = groupOf[entry.index] else {
+                    items.append(.single(entry))
+                    continue
+                }
+                if group.fragmentIDs.first == entry.index {
+                    items.append(.group(title: group.title, entries: group.fragmentIDs.compactMap { byIndex[$0] }))
+                }
+            }
+        }
+        return items
+    }
+}
+
 // MARK: Renderer
 
 /// Reads the marks of every page and draws the crops, off the main thread. Own PDF instance,
@@ -129,23 +183,26 @@ actor SummaryRenderer {
             if Task.isCancelled { break }
             guard let drawing = AnnotationStore.drawing(of: bookID, page: page), !drawing.strokes.isEmpty,
                   let size = pageSize(page), size.width > 0 else { continue }
-            let aspect = size.height / size.width
-            let height = Self.drawingWidth * aspect
-            let marks = drawing.strokes.map { stroke in
-                let b = stroke.renderBounds
-                return MarkSummary.Mark(kind: SummaryKind(stroke: stroke).rawValue,
-                                        rect: CGRect(x: b.minX / Self.drawingWidth, y: b.minY / height,
-                                                     width: b.width / Self.drawingWidth, height: b.height / height))
-            }
             let text = ocrURLs[page].flatMap { Library.loadText(at: $0) }
-            for (index, zone) in MarkSummary.zones(of: marks).enumerated() {
-                let kind = SummaryKind(rawValue: zone.kind) ?? .key
-                let words = kind == .note ? "" : text.map { MarkSummary.text(of: zone, in: $0, above: kind.textReach) } ?? ""
-                entries.append(SummaryEntry(page: page, index: index, kind: kind, rect: zone.rect,
-                                            pageAspect: aspect, text: words))
-            }
+            entries += Self.entries(page: page, drawing: drawing, aspect: size.height / size.width, text: text)
         }
         return entries
+    }
+
+    /// The zones of one page's marks, in reading order. Also used to send the highlights to the AI.
+    nonisolated static func entries(page: Int, drawing: PKDrawing, aspect: CGFloat, text: PageText?) -> [SummaryEntry] {
+        let height = drawingWidth * aspect
+        let marks = drawing.strokes.map { stroke in
+            let b = stroke.renderBounds
+            return MarkSummary.Mark(kind: SummaryKind(stroke: stroke).rawValue,
+                                    rect: CGRect(x: b.minX / drawingWidth, y: b.minY / height,
+                                                 width: b.width / drawingWidth, height: b.height / height))
+        }
+        return MarkSummary.zones(of: marks).enumerated().map { index, zone in
+            let kind = SummaryKind(rawValue: zone.kind) ?? .key
+            let words = kind == .note ? "" : text.map { MarkSummary.text(of: zone, in: $0, above: kind.textReach) } ?? ""
+            return SummaryEntry(page: page, index: index, kind: kind, rect: zone.rect, pageAspect: aspect, text: words)
+        }
     }
 
     /// The zone of the page with its marks over it, as on screen.
@@ -230,6 +287,9 @@ struct MarkSummaryView: View {
     @State private var entries: [SummaryEntry]?
     @State private var notedPages: [Int] = []
     @State private var filter: Filter = .all
+    /// The AI's groups of each page.
+    @State private var groups: [Int: HighlightGrouping.Page] = [:]
+    @AppStorage("summaryJoinsHighlights") private var joinsHighlights = true
 
     private let columns = [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)]
 
@@ -251,12 +311,23 @@ struct MarkSummaryView: View {
             .navigationTitle("Riepilogo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if groups.values.contains(where: { $0.groups.contains { $0.fragmentIDs.count > 1 } }) {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Toggle(isOn: $joinsHighlights) {
+                            Label("Unisci con l'IA", systemImage: "sparkles")
+                        }
+                        .toggleStyle(.button)
+                        .help("Mostra insieme le evidenziazioni staccate che l'IA ha riconosciuto come lo stesso concetto")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fine") { dismiss() }
                 }
             }
         }
         .task { await load() }
+        // The AI may answer for the open page while the summary is shown.
+        .onChange(of: HighlightGrouper.shared.revision) { groups = HighlightGroupStore.pages(of: document.id) }
     }
 
     private func load() async {
@@ -267,6 +338,7 @@ struct MarkSummaryView: View {
                 ? library.imageURL(of: document, page: 0).deletingLastPathComponent() : nil)
         self.renderer = renderer
         notedPages = NoteStore.pagesWithNotes(of: document.id).sorted()
+        groups = HighlightGroupStore.pages(of: document.id)
         let pages = AnnotationStore.pagesWithMarks(of: document.id).sorted()
         var ocr: [Int: URL] = [:]
         for page in pages { ocr[page] = library.ocrURL(of: document, page: page) }
@@ -274,7 +346,7 @@ struct MarkSummaryView: View {
     }
 
     private func content(_ entries: [SummaryEntry]) -> some View {
-        let byKind = Dictionary(grouping: entries, by: \.kind)
+        let byKind = Dictionary(grouping: SummaryItem.items(entries, groups: joinsHighlights ? groups : [:]), by: \.kind)
         let kinds = SummaryKind.allCases.filter { byKind[$0] != nil }
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -292,7 +364,7 @@ struct MarkSummaryView: View {
         }
     }
 
-    private func filterBar(kinds: [SummaryKind], byKind: [SummaryKind: [SummaryEntry]]) -> some View {
+    private func filterBar(kinds: [SummaryKind], byKind: [SummaryKind: [SummaryItem]]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 chip(.all, title: "Tutti", color: .accentColor, count: nil)
@@ -328,19 +400,30 @@ struct MarkSummaryView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private func section(_ kind: SummaryKind, entries: [SummaryEntry]) -> some View {
+    private func section(_ kind: SummaryKind, entries: [SummaryItem]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(kind.label, detail: kind.detail, systemImage: kind.systemImage, color: kind.color,
                           count: entries.count)
             LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
-                ForEach(entries) { entry in
-                    Button {
-                        select(entry.page, false)
-                        dismiss()
-                    } label: {
-                        SummaryCard(entry: entry, renderer: renderer)
+                ForEach(entries) { item in
+                    switch item {
+                    case .single(let entry):
+                        Button {
+                            select(entry.page, false)
+                            dismiss()
+                        } label: {
+                            SummaryCard(entry: entry, renderer: renderer)
+                        }
+                        .buttonStyle(.plain)
+                    case .group(let title, let members):
+                        Button {
+                            select(members[0].page, false)
+                            dismiss()
+                        } label: {
+                            SummaryGroupCard(title: title, entries: members, renderer: renderer)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -430,6 +513,82 @@ private struct SummaryCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityHint("Apre la pagina \(entry.page + 1)")
+        .task(id: entry.id) { image = await renderer?.crop(entry) }
+    }
+}
+
+/// Highlights of one page that the AI joined: the name of the idea, each piece cut out of the
+/// page one under the other, and their words read as one passage.
+private struct SummaryGroupCard: View {
+    let title: String
+    let entries: [SummaryEntry]
+    let renderer: SummaryRenderer?
+
+    private var kind: SummaryKind { entries[0].kind }
+    private var page: Int { entries[0].page }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !title.isEmpty {
+                Label(title, systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(kind.color)
+            }
+            VStack(spacing: 4) {
+                ForEach(entries) { entry in
+                    SummaryCrop(entry: entry, renderer: renderer, maxHeight: 160)
+                }
+            }
+            let text = entries.map(\.text).filter { !$0.isEmpty }.joined(separator: " … ")
+            if !text.isEmpty {
+                Text(text)
+                    .font(.callout)
+                    .lineLimit(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack {
+                Text("Pagina \(page + 1) · \(entries.count) parti unite dall'IA")
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                Spacer()
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .leading) {
+            UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 12)
+                .fill(kind.color)
+                .frame(width: 4)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Apre la pagina \(page + 1)")
+    }
+}
+
+/// The crop of one zone, loaded when it shows.
+private struct SummaryCrop: View {
+    let entry: SummaryEntry
+    let renderer: SummaryRenderer?
+    let maxHeight: CGFloat
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFit()
+            } else {
+                Rectangle().fill(.quaternary)
+                    .aspectRatio(entry.aspect, contentMode: .fit)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: maxHeight)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .task(id: entry.id) { image = await renderer?.crop(entry) }
     }
 }
