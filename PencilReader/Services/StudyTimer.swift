@@ -33,15 +33,24 @@ final class StudyTimer {
     var phase: PomodoroPhase { timer.phase }
     var isRunning: Bool { timer.isRunning }
     /// Untouched since the last reset: the reader shows just an icon.
-    var isIdle: Bool { timer.isWaiting && timer.phase == .focus && timer.blocksInCycle == 0 }
+    var isIdle: Bool { timer.isWaiting && timer.phase == .focus && timer.blocksInCycle == 0 && timer.session == nil }
     var endDate: Date? { timer.endDate }
+    /// The lengths in use: the reading session's while one is under way.
+    var activeSettings: PomodoroSettings { timer.activeSettings(settings) }
+    var session: ReadingSession? { timer.session }
+    var isSessionOver: Bool { timer.isSessionOver }
 
     func remaining(at now: Date = .now) -> TimeInterval { timer.remaining(at: now, settings: settings) }
+
+    /// When the reading session ends if it goes on without pauses; nil outside a session.
+    func sessionEnd(from now: Date = .now) -> Date? {
+        timer.sessionRemaining(at: now).map { now.addingTimeInterval($0) }
+    }
 
     /// Study block number in the cycle, counted from 1.
     var blockNumber: Int { timer.blocksInCycle + (timer.phase == .focus ? 1 : 0) }
 
-    var phaseName: String { Self.name(of: timer.phase) }
+    var phaseName: String { isSessionOver ? "Lettura finita" : Self.name(of: timer.phase) }
 
     static func name(of phase: PomodoroPhase) -> String {
         switch phase {
@@ -78,6 +87,19 @@ final class StudyTimer {
         timer.reset()
     }
 
+    /// Starts reading for the given time, with blocks and breaks fitted to it.
+    func startSession(minutes: Int) {
+        cancelEnd()
+        timer.startSession(ReadingPlan(totalMinutes: minutes), at: .now)
+        scheduleEnd()
+    }
+
+    /// Back to the open-ended cycle with the user's own lengths.
+    func endSession() {
+        cancelEnd()
+        timer.endSession()
+    }
+
     /// Catches up with a block that ended while the app was in the background or closed.
     func refresh() {
         if let ended = timer.finishIfDue(at: .now, settings: settings) {
@@ -92,15 +114,19 @@ final class StudyTimer {
         armFinishTask()
         guard let endDate = timer.endDate else { return }
         let ending = timer.phase
+        let endsSession = timer.isLastBlock
         let next = timer.nextPhase(settings: settings)
-        let minutes = settings.minutes(of: next)
+        let minutes = activeSettings.minutes(of: next)
         Task {
             let center = UNUserNotificationCenter.current()
             let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
             notificationsDenied = !granted
             guard granted, timer.endDate == endDate else { return }
             let content = UNMutableNotificationContent()
-            if ending == .focus {
+            if endsSession {
+                content.title = "Tempo di lettura finito"
+                content.body = "Hai letto per tutto il tempo che ti eri dato. Ottimo lavoro!"
+            } else if ending == .focus {
                 content.title = "Blocco di studio finito"
                 content.body = next == .longBreak
                     ? "Ottimo lavoro: concediti una pausa lunga di \(minutes) minuti."
