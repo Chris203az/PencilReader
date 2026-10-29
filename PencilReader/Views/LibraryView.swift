@@ -41,6 +41,7 @@ struct LibraryView: View {
     @State private var showWords = false
     @State private var showReview = false
     @State private var showStats = false
+    @State private var showRecaps = false
     @State private var showAISettings = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 24)]
@@ -100,6 +101,9 @@ struct LibraryView: View {
                 Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
+                Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 ReviewButton(count: reviews.dueCount(in: wordList.words)) { showReview = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -135,6 +139,9 @@ struct LibraryView: View {
                 open(document)
             }
             .presentationSizing(.page)
+        }
+        .sheet(isPresented: $showRecaps) {
+            RecapListView().presentationSizing(.page)
         }
         .sheet(isPresented: $showStats) {
             ReadingStatsView { document in open(document) }

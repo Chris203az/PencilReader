@@ -78,6 +78,11 @@ public struct ReadingLog: Codable, Sendable, Equatable {
         entries(on: date, of: book, calendar: calendar).map(\.pages.count).reduce(0, +)
     }
 
+    /// The pages of `book` viewed on the day of `date`.
+    public func pagesViewed(on date: Date, of book: UUID, calendar: Calendar = .current) -> Set<Int> {
+        days[Self.dayKey(date, calendar: calendar)]?[book.uuidString]?.pages ?? []
+    }
+
     public func focusBlocks(on date: Date, calendar: Calendar = .current) -> Int {
         focusBlocks[Self.dayKey(date, calendar: calendar)] ?? 0
     }

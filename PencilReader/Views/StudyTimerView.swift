@@ -5,16 +5,37 @@ import SwiftUI
 /// Tapping it opens the controls.
 struct StudyTimerButton: View {
     let bookID: UUID
+    /// "Fissa la lettura" was tapped: the reader presents it once the panel has closed.
+    var onFix: () -> Void = {}
+    /// The previous recap is to be reread before reading on.
+    var onReread: (ReadingRecap) -> Void = { _ in }
     @Environment(StudyTimer.self) private var timer
     @State private var showPanel = false
+    /// Done when the popover is gone: a full screen view can't open over it.
+    @State private var afterClose: StudyTimerPanel.Action?
 
     var body: some View {
         Button { showPanel = true } label: { label }
             .accessibilityLabel("Timer di studio")
             .popover(isPresented: $showPanel) {
-                StudyTimerPanel(bookID: bookID)
-                    .frame(width: 340)
-                    .presentationCompactAdaptation(.popover)
+                StudyTimerPanel(bookID: bookID) { action in
+                    afterClose = action
+                    showPanel = false
+                }
+                .frame(width: 340)
+                .presentationCompactAdaptation(.popover)
+            }
+            .onChange(of: showPanel) { _, shown in
+                guard !shown, let action = afterClose else { return }
+                afterClose = nil
+                // Leaves the popover the time to go away.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    switch action {
+                    case .fix: onFix()
+                    case .reread(let recap): onReread(recap)
+                    }
+                }
             }
     }
 
@@ -58,14 +79,27 @@ private struct StudyTimerTime: View {
 }
 
 private struct StudyTimerPanel: View {
+    enum Action {
+        case fix
+        case reread(ReadingRecap)
+    }
+
     let bookID: UUID
+    /// Closes the panel, then does the action.
+    let perform: (Action) -> Void
     @Environment(StudyTimer.self) private var timer
     @Environment(ReadingStats.self) private var stats
     @State private var showReadingTime = false
+    /// Offered as a new session starts: the recap of the last time, to start from.
+    @State private var rereadOffer: ReadingRecap?
+    private let recaps = RecapStore.shared
 
     var body: some View {
         @Bindable var timer = timer
         VStack(spacing: 18) {
+            if let recap = rereadOffer {
+                rereadCard(recap)
+            }
             if timer.isSessionOver {
                 sessionOver
             } else {
@@ -90,6 +124,10 @@ private struct StudyTimerPanel: View {
             }
 
             readingTime
+
+            if !timer.isSessionOver {
+                fixButton.buttonStyle(.bordered)
+            }
 
             Divider()
 
@@ -148,7 +186,10 @@ private struct StudyTimerPanel: View {
                 Button("Pausa", systemImage: "pause.fill") { timer.pause() }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button(timer.timer.isWaiting ? "Avvia" : "Riprendi", systemImage: "play.fill") { timer.start() }
+                Button(timer.timer.isWaiting ? "Avvia" : "Riprendi", systemImage: "play.fill") {
+                    if timer.isIdle { offerReread() }
+                    timer.start()
+                }
                     .buttonStyle(.borderedProminent)
             }
             Button(timer.phase.isBreak ? "Salta la pausa" : "Salta", systemImage: "forward.end.fill") {
@@ -186,6 +227,7 @@ private struct StudyTimerPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            fixButton.buttonStyle(.borderedProminent)
             HStack(spacing: 12) {
                 Button("Nuova sessione", systemImage: "hourglass") {
                     timer.endSession()
@@ -221,10 +263,56 @@ private struct StudyTimerPanel: View {
                 ReadingTimePicker { minutes in
                     timer.startSession(minutes: minutes)
                     showReadingTime = false
+                    offerReread()
                 }
                 .padding(.top, 6)
             }
         }
+    }
+
+    /// The reader has finished: re-elaborate the pages read.
+    private var fixButton: some View {
+        Button {
+            perform(.fix)
+        } label: {
+            Label("Fissa la lettura", systemImage: "brain.head.profile")
+                .frame(maxWidth: .infinity)
+        }
+        .tint(.indigo)
+        .accessibilityHint("Hai finito di leggere: rielabori a mano le pagine lette e le confronti con l'IA")
+    }
+
+    /// A new reading starts: the last recap of the book, if there is one not offered yet.
+    private func offerReread() {
+        rereadOffer = recaps.toReread(of: bookID)
+    }
+
+    private func rereadCard(_ recap: ReadingRecap) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Riparti da dove eri rimasto", systemImage: "arrow.uturn.backward.circle")
+                .font(.subheadline.weight(.semibold))
+            Text("Prima di leggere, rileggi la rielaborazione di \(recap.pagesLabel) (\(recap.created.formatted(.relative(presentation: .named)))).")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Rileggi", systemImage: "book") {
+                    recaps.markOffered(recap.id)
+                    rereadOffer = nil
+                    perform(.reread(recap))
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Non ora") {
+                    recaps.markOffered(recap.id)
+                    rereadOffer = nil
+                }
+                .buttonStyle(.bordered)
+            }
+            .tint(.indigo)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.indigo.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func sessionEndText(_ end: Date, now: Date) -> String {
