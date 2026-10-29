@@ -154,6 +154,14 @@ final class ReaderModel {
         }
     }
 
+    /// Reads the text of the pages that don't have it yet, one at a time; pages that fail are skipped.
+    func recognizeText(of pages: ClosedRange<Int>) async {
+        for page in pages where (0..<pageCount).contains(page) && !library.hasSavedText(of: document, page: page) {
+            _ = try? await recognizedText(for: page)
+        }
+        imageCache = imageCache.filter { abs($0.key - pageIndex) <= 1 }
+    }
+
     private func recognizedText(for index: Int) async throws -> PageText {
         if let cached = textCache[index] { return cached }
         if let saved = library.savedText(of: document, page: index) {

@@ -31,6 +31,9 @@ struct ReaderView: View {
     /// Every study mark of the book, cut out of its page and grouped by color.
     @State private var showSummary = false
     @State private var showExport = false
+    /// "Fissa la lettura": a new recap of the pages just read, or one to reread.
+    @State private var recapSheet: RecapSheet?
+    @State private var showRecaps = false
     /// Highlighter, underline and margin notes over the page, in place of the lasso.
     @State private var study: StudyModel?
     @State private var split = NotebookSettings.split
@@ -134,6 +137,16 @@ struct ReaderView: View {
                             .presentationSizing(.page)
                     }
                 }
+                .fullScreenCover(item: $recapSheet) { sheet in
+                    switch sheet {
+                    case .new(let pages): FixReadingView(model: model, suggested: pages)
+                    case .open(let recap): FixReadingView(recap: recap)
+                    }
+                }
+                .sheet(isPresented: $showRecaps) {
+                    RecapListView(currentBookID: document.id)
+                        .presentationSizing(.page)
+                }
                 .sheet(isPresented: $showAISettings) {
                     AISettingsView().presentationSizing(.form)
                 }
@@ -162,7 +175,9 @@ struct ReaderView: View {
                 Button(library.currentCollection.name, systemImage: "chevron.left") { dismiss() }
             }
             ToolbarItem(placement: .topBarLeading) {
-                StudyTimerButton(bookID: document.id)
+                StudyTimerButton(bookID: document.id, onFix: fixReading) { recap in
+                    recapSheet = .open(recap)
+                }
             }
         }
         // Reading time counts only while the book is open and the app is in front.
@@ -193,6 +208,17 @@ struct ReaderView: View {
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
             await thumbnails?.prefetch(from: model?.pageIndex ?? document.lastPage)
         }
+    }
+
+    /// The reader has finished reading: the pages seen today up to this one, after the last recap.
+    private func fixReading() {
+        guard let model else { return }
+        notebook?.flush()
+        study?.flush()
+        recapSheet = .new(ReadingRecap.suggestedRange(
+            current: model.pageIndex,
+            pagesSeenToday: stats.log.pagesViewed(on: .now, of: document.id),
+            lastRecapEnd: RecapStore.shared.lastRecapEnd(of: document.id)))
     }
 
     /// The book page takes the left share of the width while the notebook is open.
@@ -365,6 +391,7 @@ struct ReaderView: View {
                 Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
                 themeMenu
                 Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
+                Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
                 Button("Impostazioni IA", systemImage: "sparkles") { showAISettings = true }
                 Toggle(isOn: Bindable(model).showWordBoxes) {
                     Label("Riquadri OCR", systemImage: "square.dashed")
