@@ -79,7 +79,7 @@ public enum GeminiExplainer {
              apiKey: apiKey, model: model)
     }
 
-    private static func post(_ body: [String: Any], apiKey: String, model: String) -> URLRequest {
+    static func post(_ body: [String: Any], apiKey: String, model: String) -> URLRequest {
         var request = URLRequest(url: endpoint.appendingPathComponent("\(model):generateContent"))
         request.httpMethod = "POST"
         // An overloaded model can hang for a long time before answering 503: better to move on.

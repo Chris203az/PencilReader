@@ -97,6 +97,31 @@ final class ReaderModel {
         return searchHighlight.wordIDs
     }
 
+    /// Height over width of a page, read from the PDF or the image file's header.
+    func pageAspect(_ index: Int) -> CGFloat? {
+        let size: CGSize?
+        switch source {
+        case .pdf(let pdf):
+            size = pdf.page(at: index).map { page in
+                let box = page.bounds(for: .cropBox).size
+                return page.rotation % 180 == 0 ? box : CGSize(width: box.height, height: box.width)
+            }
+        case .images:
+            size = (imageCache[index] ?? UIImage(contentsOfFile: library.imageURL(of: document, page: index)
+                .path(percentEncoded: false)))?.size
+        case nil:
+            size = nil
+        }
+        guard let size, size.width > 0 else { return nil }
+        return size.height / size.width
+    }
+
+    /// Sends the highlights of a page the reader has finished with to the AI, to join the pieces of one idea.
+    func groupHighlights(of page: Int) {
+        HighlightGrouper.shared.pageLeft(page, of: document.id, aspect: pageAspect(page),
+                                         ocrURL: library.ocrURL(of: document, page: page))
+    }
+
     func nextPage() { showPage(pageIndex + 1) }
     func previousPage() { showPage(pageIndex - 1) }
 
