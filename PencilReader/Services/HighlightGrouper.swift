@@ -38,7 +38,7 @@ enum HighlightGroupStore {
     }
 }
 
-/// When a page is left, sends its highlighted passages to Gemini, which joins the separate pieces
+/// When a page is left, sends its highlighted passages to the AI chosen for the study functions, which joins the separate pieces
 /// that say the same thing. Runs in the background and never interrupts reading: without a key,
 /// offline or on an error nothing happens, and the page is tried again the next time it is left.
 /// A page whose highlights haven't changed since its last answer is not sent again.
@@ -66,11 +66,11 @@ final class HighlightGrouper {
             leftAgain.insert(key)
             return
         }
-        let apiKey = APIKeyStore.shared.googleKey
+        let hasKey = AIClient.hasKey(for: .study)
         Task {
             try? await Task.sleep(for: Self.delay)
             // Saved here, on the main actor, so two pages of one book never write the file at once.
-            if case .some(let result) = await Self.group(page, of: bookID, aspect: aspect, ocrURL: ocrURL, apiKey: apiKey) {
+            if case .some(let result) = await Self.group(page, of: bookID, aspect: aspect, ocrURL: ocrURL, hasKey: hasKey) {
                 HighlightGroupStore.set(result, of: bookID, page: page)
                 revision += 1
             }
@@ -91,7 +91,7 @@ final class HighlightGrouper {
 
     /// The page's new groups (nil when it has no highlights left), or nothing when the saved ones stay.
     private nonisolated static func group(_ page: Int, of bookID: UUID, aspect: CGFloat, ocrURL: URL,
-                                          apiKey: String?) async -> HighlightGrouping.Page?? {
+                                          hasKey: Bool) async -> HighlightGrouping.Page?? {
         let drawing = AnnotationStore.drawing(of: bookID, page: page) ?? PKDrawing()
         let text = Library.loadText(at: ocrURL)
         let fragments = fragments(of: SummaryRenderer.entries(page: page, drawing: drawing, aspect: aspect, text: text))
@@ -104,10 +104,10 @@ final class HighlightGrouper {
         guard saved?.signature != signature else { return .none }
         let groups: [HighlightGrouping.Group]
         if HighlightGrouping.needsAsking(fragments) {
-            guard let apiKey else { return .none }
+            guard hasKey else { return .none }
             do {
                 let pageText = text?.blocks.map(\.text).joined(separator: "\n")
-                groups = try await WordExplainer.group(fragments, pageText: pageText, apiKey: apiKey)
+                groups = try await AIClient.group(fragments, pageText: pageText)
             } catch {
                 return .none
             }
@@ -118,17 +118,13 @@ final class HighlightGrouper {
     }
 }
 
-extension WordExplainer {
+extension AIClient {
     /// The meaning of each highlighter color, as the AI reads it.
     static let kindNames = Dictionary(uniqueKeysWithValues: StudyColor.allCases.map { ($0.rawValue, $0.label) })
 
-    static func group(_ fragments: [HighlightGrouping.Fragment], pageText: String?,
-                      apiKey: String) async throws(ExplanationError) -> [HighlightGrouping.Group] {
-        try await firstAnswer { model in
-            try await HighlightGrouping.parse(send(HighlightGrouping.request(fragments: fragments, kindNames: kindNames,
-                                                                             pageText: pageText, apiKey: apiKey,
-                                                                             model: model)),
-                                              fragments: fragments)
-        }
+    static func group(_ fragments: [HighlightGrouping.Fragment],
+                      pageText: String?) async throws(ExplanationError) -> [HighlightGrouping.Group] {
+        let prompt = HighlightGrouping.prompt(fragments: fragments, kindNames: kindNames, pageText: pageText)
+        return try HighlightGrouping.groups(fromModelText: await ask(prompt, for: .study), fragments: fragments)
     }
 }

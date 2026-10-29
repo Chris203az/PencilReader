@@ -82,40 +82,41 @@ public enum HighlightGrouping {
     /// `pageText` is the whole page, so the model sees how the pieces sit in it (a list, a definition).
     public static func request(fragments: [Fragment], kindNames: [String: String], pageText: String?,
                                apiKey: String, model: String = GeminiExplainer.model) -> URLRequest {
-        GeminiExplainer.post(body(fragments: fragments, kindNames: kindNames, pageText: pageText),
-                             apiKey: apiKey, model: model)
+        GeminiExplainer.request(prompt(fragments: fragments, kindNames: kindNames, pageText: pageText),
+                                apiKey: apiKey, model: model)
+    }
+
+    /// The question for any provider.
+    public static func prompt(fragments: [Fragment], kindNames: [String: String], pageText: String?) -> AIPrompt {
+        AIPrompt(system: systemPrompt, user: promptText(fragments: fragments, kindNames: kindNames, pageText: pageText),
+                 json: true, schema: schema)
     }
 
     /// Enough for a dense page; longer text is cut.
     static let pageTextLimit = 8000
 
     static func body(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> [String: Any] {
+        GeminiExplainer.body(prompt(fragments: fragments, kindNames: kindNames, pageText: pageText))
+    }
+
+    static var schema: [String: Any] {
         [
-            "systemInstruction": ["parts": [["text": systemPrompt]]],
-            "contents": [["role": "user", "parts": [["text": prompt(fragments: fragments, kindNames: kindNames,
-                                                                    pageText: pageText)]]]],
-            "generationConfig": [
-                "responseMimeType": "application/json",
-                "responseSchema": [
-                    "type": "OBJECT",
-                    "properties": [
-                        groupsKey: [
-                            "type": "ARRAY",
-                            "items": [
-                                "type": "OBJECT",
-                                "properties": [
-                                    idsKey: ["type": "ARRAY", "items": ["type": "INTEGER"]],
-                                    titleKey: ["type": "STRING"]
-                                ],
-                                "required": [idsKey, titleKey],
-                                "propertyOrdering": [idsKey, titleKey]
-                            ]
-                        ]
-                    ],
-                    "required": [groupsKey]
-                ],
-                "thinkingConfig": ["thinkingLevel": GeminiExplainer.thinkingLevel]
-            ]
+            "type": "OBJECT",
+            "properties": [
+                groupsKey: [
+                    "type": "ARRAY",
+                    "items": [
+                        "type": "OBJECT",
+                        "properties": [
+                            idsKey: ["type": "ARRAY", "items": ["type": "INTEGER"]],
+                            titleKey: ["type": "STRING"]
+                        ],
+                        "required": [idsKey, titleKey],
+                        "propertyOrdering": [idsKey, titleKey]
+                    ]
+                ]
+            ],
+            "required": [groupsKey]
         ]
     }
 
@@ -142,7 +143,7 @@ public enum HighlightGrouping {
         "Ipotesi del modello Q1D"), senza Markdown.
         """
 
-    static func prompt(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> String {
+    static func promptText(fragments: [Fragment], kindNames: [String: String], pageText: String? = nil) -> String {
         let list = fragments.map { fragment in
             let kind = kindNames[fragment.kind] ?? fragment.kind
             let text = fragment.text.replacingOccurrences(of: "\n", with: " ")
@@ -177,10 +178,8 @@ public enum HighlightGrouping {
     /// The model's JSON, made safe: unknown or repeated numbers are dropped, a group mixing kinds
     /// is split by kind, and fragments the model forgot are added alone. Groups follow the page's
     /// reading order, by their first fragment.
-    static func groups(fromModelText text: String, fragments: [Fragment]) throws(ExplanationError) -> [Group] {
-        guard let open = text.firstIndex(of: "{"), let close = text.lastIndex(of: "}"), open < close,
-              let object = (try? JSONSerialization.jsonObject(with: Data(text[open...close].utf8))) as? [String: Any],
-              let answered = object[groupsKey] as? [[String: Any]]
+    public static func groups(fromModelText text: String, fragments: [Fragment]) throws(ExplanationError) -> [Group] {
+        guard let answered = AIRequests.jsonObject(in: text)?[groupsKey] as? [[String: Any]]
         else { throw .badResponse }
         let order = Dictionary(uniqueKeysWithValues: fragments.enumerated().map { ($1.id, $0) })
         let kinds = Dictionary(uniqueKeysWithValues: fragments.map { ($0.id, $0.kind) })

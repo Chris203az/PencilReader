@@ -60,7 +60,7 @@ struct WordExplanationTests {
     }
 
     @Test func promptWithoutSentenceAsksForTypicalUse() {
-        let text = GeminiExplainer.prompt(term: "stall", context: "  ")
+        let text = GeminiExplainer.promptText(term: "stall", context: "  ")
         #expect(!text.contains("Frase in cui compare"))
         #expect(text.contains("non è disponibile"))
     }

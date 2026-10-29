@@ -18,6 +18,7 @@ public enum ExplanationError: Error, Equatable, Sendable {
     case missingKey
     case invalidKey
     case quotaExceeded
+    case noCredit
     case offline
     case timedOut
     case unavailable
@@ -28,9 +29,10 @@ public enum ExplanationError: Error, Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .missingKey: "Serve una chiave API di Google AI Studio: aggiungila nelle impostazioni."
+        case .missingKey: "Serve una chiave API per il servizio IA scelto: aggiungila nelle impostazioni IA."
         case .invalidKey: "La chiave API non è valida. Controllala nelle impostazioni."
-        case .quotaExceeded: "Limite gratuito raggiunto. Riprova tra un po'."
+        case .quotaExceeded: "Limite di richieste raggiunto. Riprova tra un po'."
+        case .noCredit: "Credito esaurito sull'account del servizio IA. Ricaricalo o scegli un altro servizio nelle impostazioni."
         case .offline: "Sei offline. Collegati a internet e riprova."
         case .timedOut: "Il servizio non ha risposto in tempo. Riprova."
         case .unavailable: "Il servizio è sovraccarico in questo momento. Riprova tra poco."
@@ -69,7 +71,12 @@ public enum GeminiExplainer {
 
     public static func request(term: String, context: String?, apiKey: String,
                                model: String = model) -> URLRequest {
-        post(body(term: term, context: context), apiKey: apiKey, model: model)
+        request(prompt(term: term, context: context), apiKey: apiKey, model: model)
+    }
+
+    /// Any prompt, as a `generateContent` request.
+    public static func request(_ prompt: AIPrompt, apiKey: String, model: String = model) -> URLRequest {
+        post(body(prompt), apiKey: apiKey, model: model)
     }
 
     /// A tiny message to check that a newly entered key works.
@@ -91,24 +98,29 @@ public enum GeminiExplainer {
         return request
     }
 
-    static func body(term: String, context: String?) -> [String: Any] {
-        [
-            "systemInstruction": ["parts": [["text": systemPrompt]]],
-            "contents": [["role": "user", "parts": [["text": prompt(term: term, context: context)]]]],
-            "generationConfig": [
-                "responseMimeType": "application/json",
-                "responseSchema": [
-                    "type": "OBJECT",
-                    "properties": [
-                        meaningKey: ["type": "STRING"],
-                        contextKey: ["type": "STRING"]
-                    ],
-                    "required": [meaningKey, contextKey],
-                    "propertyOrdering": [meaningKey, contextKey]
-                ],
-                "thinkingConfig": ["thinkingLevel": thinkingLevel]
-            ]
+    static func body(_ prompt: AIPrompt) -> [String: Any] {
+        var config: [String: Any] = ["thinkingConfig": ["thinkingLevel": thinkingLevel]]
+        if prompt.json { config["responseMimeType"] = "application/json" }
+        if let schema = prompt.schema { config["responseSchema"] = schema }
+        if let maxTokens = prompt.maxTokens { config["maxOutputTokens"] = maxTokens }
+        return [
+            "systemInstruction": ["parts": [["text": prompt.system]]],
+            "contents": [["role": "user", "parts": [["text": prompt.user]]]],
+            "generationConfig": config
         ]
+    }
+
+    /// The explanation of a circled term, for any provider.
+    public static func prompt(term: String, context: String?) -> AIPrompt {
+        AIPrompt(system: systemPrompt, user: promptText(term: term, context: context), json: true, schema: [
+            "type": "OBJECT",
+            "properties": [
+                meaningKey: ["type": "STRING"],
+                contextKey: ["type": "STRING"]
+            ],
+            "required": [meaningKey, contextKey],
+            "propertyOrdering": [meaningKey, contextKey]
+        ])
     }
 
     static let systemPrompt = """
@@ -123,7 +135,7 @@ public enum GeminiExplainer {
         Sii denso ma breve: niente frasi di riempimento, non ripetere la domanda.
         """
 
-    static func prompt(term: String, context: String?) -> String {
+    static func promptText(term: String, context: String?) -> String {
         let term = term.trimmingCharacters(in: .whitespacesAndNewlines)
         let sentence = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let meaning = """
@@ -187,10 +199,8 @@ public enum GeminiExplainer {
     }
 
     /// The model's JSON, tolerating code fences or text around it.
-    static func explanation(fromModelText text: String) throws(ExplanationError) -> WordExplanation {
-        guard let open = text.firstIndex(of: "{"), let close = text.lastIndex(of: "}"), open < close,
-              let object = (try? JSONSerialization.jsonObject(with: Data(text[open...close].utf8))) as? [String: Any]
-        else { throw .badResponse }
+    public static func explanation(fromModelText text: String) throws(ExplanationError) -> WordExplanation {
+        guard let object = AIRequests.jsonObject(in: text) else { throw .badResponse }
         let meaning = (object[meaningKey] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let inContext = (object[contextKey] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !meaning.isEmpty, !inContext.isEmpty else { throw .badResponse }
@@ -222,7 +232,7 @@ public enum GeminiExplainer {
     public static func shouldTryNextModel(after error: ExplanationError) -> Bool {
         switch error {
         case .unavailable, .timedOut, .quotaExceeded, .modelNotFound, .http: true
-        case .missingKey, .invalidKey, .offline, .blocked, .badResponse: false
+        case .missingKey, .invalidKey, .noCredit, .offline, .blocked, .badResponse: false
         }
     }
 

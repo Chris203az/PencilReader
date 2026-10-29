@@ -72,7 +72,7 @@ struct HighlightGroupingTests {
     }
 
     @Test func withoutPageTextOnlyTheFragmentsAreSent() {
-        let text = HighlightGrouping.prompt(fragments: fragments, kindNames: [:], pageText: "  ")
+        let text = HighlightGrouping.promptText(fragments: fragments, kindNames: [:], pageText: "  ")
         #expect(text.hasPrefix("Frammenti evidenziati"))
     }
 

@@ -10,7 +10,6 @@ struct TranslationPanel: View {
     /// Called when the AI is asked about the term.
     var onAskAI: () -> Void = {}
     @State private var showDictionary = false
-    @State private var keys = APIKeyStore.shared
     @State private var ai = AIState.idle
     /// Set to start a request; changing it cancels the running one.
     @State private var askID: UUID?
@@ -65,7 +64,7 @@ struct TranslationPanel: View {
         }
         .sheet(isPresented: $showAISettings, onDismiss: {
             // A key was just added: ask right away.
-            if case .failed(let error) = ai, error == .missingKey || error == .invalidKey, keys.hasGoogleKey {
+            if case .failed(let error) = ai, error == .missingKey || error == .invalidKey, AIClient.hasKey(for: .ask) {
                 askAI()
             }
         }) {
@@ -73,15 +72,10 @@ struct TranslationPanel: View {
         }
         .task(id: askID) {
             guard askID != nil else { return }
-            guard let key = keys.googleKey else {
-                ai = .failed(.missingKey)
-                return
-            }
             ai = .loading
             slowAnswer = false
             do {
-                ai = .done(try await WordExplainer.explain(term: selection.text, context: selection.context?.text,
-                                                           apiKey: key))
+                ai = .done(try await AIClient.explain(term: selection.text, context: selection.context?.text))
             } catch {
                 guard !Task.isCancelled else { return }
                 ai = .failed(error as? ExplanationError ?? .unavailable)
@@ -94,7 +88,7 @@ struct TranslationPanel: View {
     }
 
     private func askAI() {
-        guard keys.hasGoogleKey else {
+        guard AIClient.hasKey(for: .ask) else {
             ai = .failed(.missingKey)
             return
         }
