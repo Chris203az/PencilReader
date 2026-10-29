@@ -51,6 +51,8 @@ final class HighlightGrouper {
     private(set) var revision = 0
 
     @ObservationIgnored private var running: Set<String> = []
+    /// Pages left again while their answer was still coming: they may have changed meanwhile.
+    @ObservationIgnored private var leftAgain: Set<String> = []
     /// The marks of the page just left are saved a moment after the page changes.
     private static let delay = Duration.seconds(2)
 
@@ -60,7 +62,10 @@ final class HighlightGrouper {
     func pageLeft(_ page: Int, of bookID: UUID, aspect: CGFloat?, ocrURL: URL) {
         guard let aspect, aspect > 0 else { return }
         let key = "\(bookID)-\(page)"
-        guard running.insert(key).inserted else { return }
+        guard running.insert(key).inserted else {
+            leftAgain.insert(key)
+            return
+        }
         let apiKey = APIKeyStore.shared.googleKey
         Task {
             try? await Task.sleep(for: Self.delay)
@@ -70,6 +75,10 @@ final class HighlightGrouper {
                 revision += 1
             }
             running.remove(key)
+            // Marks changed after the request left are grouped again, against the answer just saved.
+            if leftAgain.remove(key) != nil {
+                pageLeft(page, of: bookID, aspect: aspect, ocrURL: ocrURL)
+            }
         }
     }
 
