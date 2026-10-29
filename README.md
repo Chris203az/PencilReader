@@ -23,7 +23,7 @@ App per iPad per studiare sui libri tecnici in inglese (PDF e scansioni) con la 
 
 - Evidenziatori arancione, azzurro e rosa che seguono una riga alla volta e non si scuriscono ripassando, sottolineatura e penna per il margine, sopra la pagina.
 - Riepilogo del libro: tutti i segni ritagliati dalle pagine e raggruppati per colore, con salto alla pagina.
-- Evidenziazioni unite dall'IA: quando lasci una pagina, il testo evidenziato (concetto, formula, da rivedere) va a Gemini, che unisce i pezzi staccati dello stesso concetto; nel Riepilogo compaiono come una scheda sola col nome del concetto (pulsante "Unisci con l'IA" per vederli separati). Senza chiave o senza rete non succede niente; una pagina non cambiata non viene rimandata.
+- Evidenziazioni unite dall'IA: quando lasci una pagina, il testo evidenziato (concetto, formula, da rivedere) va a Gemini, che unisce i pezzi staccati dello stesso concetto; nel Riepilogo compaiono come una scheda sola col nome del concetto (pulsante "Unisci con l'IA" per vederli separati). Senza chiave o senza rete non succede niente; una pagina non cambiata non viene rimandata, mentre se torni su una pagina e cambi le evidenziazioni (aggiunte, cancellate o di altro colore) viene raggruppata di nuovo quando la lasci.
 - Timer di studio (Pomodoro, 25/5 regolabile) nella barra del lettore, con notifica a fine blocco.
 
 ### Quaderno degli appunti
