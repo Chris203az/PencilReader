@@ -2,82 +2,118 @@ import Foundation
 import Testing
 @testable import ReaderCore
 
-private func response(_ object: Any) -> Data {
-    let text = String(decoding: try! JSONSerialization.data(withJSONObject: object), as: UTF8.self)
-    return try! JSONSerialization.data(withJSONObject:
-        ["candidates": [["content": ["role": "model", "parts": [["text": text]]], "finishReason": "STOP"]]])
+/// The model's text, inside a code fence as some models write it.
+private func response(_ object: Any) -> String {
+    "```json\n" + String(decoding: try! JSONSerialization.data(withJSONObject: object), as: UTF8.self) + "\n```"
 }
 
-private let fragments = [
-    HighlightGrouping.Fragment(id: 0, kind: "key", text: "Specific impulse is the thrust"),
-    HighlightGrouping.Fragment(id: 1, kind: "formula", text: "Isp = F / (mdot g0)"),
-    HighlightGrouping.Fragment(id: 3, kind: "key", text: "per unit weight flow of propellant"),
-    HighlightGrouping.Fragment(id: 4, kind: "review", text: "frozen flow")
-]
+private let page4 = HighlightGrouping.fragments(page: 4, passages: [
+    ("key", "Specific impulse is the thrust"),
+    ("formula", "Isp = F / (mdot g0)"),
+    ("key", "per unit weight flow of propellant"),
+    ("review", "frozen flow")
+])
+private let page5 = HighlightGrouping.fragments(page: 5, passages: [("key", "and is measured in seconds")])
+private let fragments = page4 + page5
 
 struct HighlightGroupingTests {
-    @Test func requestListsFragmentsWithTheirKindAndKeyInHeader() throws {
-        let request = HighlightGrouping.request(fragments: fragments, kindNames: ["key": "Concetto chiave"],
-                                                pageText: "1. Specific impulse is the thrust\n2. frozen flow",
-                                                apiKey: "SECRET")
-        #expect(request.value(forHTTPHeaderField: "x-goog-api-key") == "SECRET")
-        #expect(request.url?.absoluteString.contains("SECRET") == false)
-        let body = try #require(try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
-        let contents = body["contents"] as? [[String: Any]]
-        let text = (contents?.first?["parts"] as? [[String: Any]])?.first?["text"] as? String ?? ""
-        #expect(text.contains("0. [Concetto chiave] Specific impulse is the thrust"))
-        #expect(text.contains("1. [formula] Isp = F / (mdot g0)"))
-        // The whole page goes first, so the model sees the list the pieces belong to.
-        #expect(text.hasPrefix("Testo completo della pagina:"))
-        #expect(text.contains("2. frozen flow"))
-        let config = body["generationConfig"] as? [String: Any]
-        #expect(config?["responseMimeType"] as? String == "application/json")
+    @Test func promptListsFragmentsWithPageKindAndPageTexts() throws {
+        let prompt = HighlightGrouping.prompt(fragments: fragments, kindNames: ["key": "Concetto chiave"],
+                                              pageTexts: [4: "1. Specific impulse is the thrust", 5: "  "])
+        let text = prompt.user
+        #expect(text.contains("0. [p. 5] [Concetto chiave] Specific impulse is the thrust"))
+        #expect(text.contains("1. [p. 5] [formula] Isp = F / (mdot g0)"))
+        #expect(text.contains("4. [p. 6] [Concetto chiave] and is measured in seconds"))
+        // The pages go first, so the model sees the list the pieces belong to; empty ones are left out.
+        #expect(text.hasPrefix("Testo della pagina 5:"))
+        #expect(!text.contains("Testo della pagina 6"))
+        // DeepSeek answers in JSON only when the prompt says "json".
+        #expect(prompt.json && text.contains("json"))
+        #expect(prompt.schema?["required"] as? [String] == ["gruppi"])
     }
 
-    @Test func joinsWhatTheModelJoins() throws {
-        let data = response(["gruppi": [["frammenti": [0, 3], "titolo": "Impulso specifico"],
-                                        ["frammenti": [1], "titolo": "Formula"],
-                                        ["frammenti": [4], "titolo": "Flusso congelato"]]])
-        let groups = try HighlightGrouping.parse(data, fragments: fragments)
-        #expect(groups == [
-            .init(kind: "key", title: "Impulso specifico", fragmentIDs: [0, 3]),
-            .init(kind: "formula", title: "Formula", fragmentIDs: [1]),
-            .init(kind: "review", title: "Flusso congelato", fragmentIDs: [4])
-        ])
+    @Test func joinsAcrossPagesAndKeepsOnlyRealGroups() throws {
+        let data = response(["gruppi": [["frammenti": [0, 2, 4], "titolo": "Impulso specifico", "sintesi": "Spinta per peso."],
+                                        ["frammenti": [1], "titolo": "Formula", "sintesi": ""],
+                                        ["frammenti": [3], "titolo": "Flusso congelato", "sintesi": ""]]])
+        let concepts = try HighlightGrouping.concepts(fromModelText: data, fragments: fragments)
+        #expect(concepts == [.init(kind: "key", title: "Impulso specifico", summary: "Spinta per peso.",
+                                   keys: [page4[0].key, page4[2].key, page5[0].key])])
+        #expect(concepts[0].pages == [4, 5])
     }
 
-    @Test func splitsMixedKindsAddsForgottenAndDropsUnknownOrRepeated() throws {
-        let data = response(["gruppi": [["frammenti": [3, 1, 0, 9], "titolo": "Tutto"],
-                                        ["frammenti": [0], "titolo": "Doppio"]]])
-        let groups = try HighlightGrouping.parse(data, fragments: fragments)
-        #expect(groups == [
-            .init(kind: "key", title: "Tutto", fragmentIDs: [0, 3]),
-            .init(kind: "formula", title: "Tutto", fragmentIDs: [1]),
-            .init(kind: "review", title: "", fragmentIDs: [4])
-        ])
+    @Test func splitsMixedKindsAndDropsUnknownOrRepeated() throws {
+        let data = response(["gruppi": [["frammenti": [2, 1, 0, 9], "titolo": "Tutto", "sintesi": "S"],
+                                        ["frammenti": [0, 4], "titolo": "Doppio", "sintesi": "D"]]])
+        let concepts = try HighlightGrouping.concepts(fromModelText: data, fragments: fragments)
+        // 1 (formula) is alone after the split; 0 was already used, so "Doppio" keeps only 4.
+        #expect(concepts == [.init(kind: "key", title: "Tutto", summary: "", keys: [page4[0].key, page4[2].key])])
     }
 
     @Test func unreadableAnswerIsABadResponse() {
         #expect(throws: ExplanationError.badResponse) {
-            try HighlightGrouping.parse(response(["altro": 1]), fragments: fragments)
+            try HighlightGrouping.concepts(fromModelText: response(["altro": 1]), fragments: fragments)
         }
     }
 
+    @Test func keysSurviveOtherChangesOnThePage() {
+        let more = HighlightGrouping.fragments(page: 4, passages: [
+            ("key", "A new passage above"),
+            ("key", "Specific impulse is the thrust"),
+            ("key", ""),
+            ("key", "per unit weight flow of propellant")
+        ])
+        #expect(more.count == 3)
+        #expect(more[1].key == page4[0].key)
+        #expect(more[2].key == page4[2].key)
+        #expect(HighlightGrouping.page(ofKey: more[0].key) == 4)
+        let twice = HighlightGrouping.fragments(page: 4, passages: [("key", "same"), ("key", "same")])
+        #expect(twice[0].key != twice[1].key)
+    }
+
     @Test func signatureIsStableAndFollowsTheText() {
-        let same = HighlightGrouping.signature(of: fragments)
-        #expect(same == HighlightGrouping.signature(of: fragments))
-        var changed = fragments
-        changed[3] = .init(id: 4, kind: "review", text: "frozen flows")
+        let same = HighlightGrouping.signature(of: page4)
+        #expect(same == HighlightGrouping.signature(of: page4))
+        let changed = HighlightGrouping.fragments(page: 4, passages: [("key", "Specific impulse")])
         #expect(HighlightGrouping.signature(of: changed) != same)
+        let book = HighlightGrouping.Book(compacted: [4: same])
+        #expect(!book.needsCompacting(4, fragments: page4))
+        #expect(book.needsCompacting(4, fragments: changed))
+        #expect(book.needsCompacting(5, fragments: page5))
+    }
+
+    @Test func scopeTakesLinkedPassagesOfOtherPages() {
+        let page3 = HighlightGrouping.fragments(page: 3, passages: [("key", "the thrust is"), ("key", "unrelated")])
+        let linked = HighlightGrouping.Concept(kind: "key", title: "", summary: "", keys: [page3[0].key, page4[0].key])
+        let elsewhere = HighlightGrouping.Concept(kind: "key", title: "", summary: "", keys: ["1:key:a:0", "2:key:b:0"])
+        let book = HighlightGrouping.Book(concepts: [linked, elsewhere])
+        #expect(HighlightGrouping.linkedPages(of: [4, 5], in: book) == [3])
+        let scope = HighlightGrouping.scope(of: [4, 5], fragments: [3: page3, 4: page4, 5: page5], book: book)
+        #expect(scope == [page3[0]] + page4 + page5)
+    }
+
+    @Test func mergingReplacesTheConceptsOfThePages() {
+        let old = HighlightGrouping.Concept(kind: "key", title: "Vecchio", summary: "", keys: [page4[0].key, page4[2].key])
+        let elsewhere = HighlightGrouping.Concept(kind: "key", title: "Altro", summary: "", keys: ["1:key:a:0", "2:key:b:0"])
+        let new = HighlightGrouping.Concept(kind: "key", title: "Nuovo", summary: "",
+                                            keys: [page4[0].key, page4[2].key, page5[0].key])
+        let merged = HighlightGrouping.merging([new], compacted: [4, 5], fragments: [4: page4, 5: page5],
+                                               into: .init(concepts: [old, elsewhere]))
+        #expect(merged.concepts == [elsewhere, new])
+        #expect(!merged.needsCompacting(4, fragments: page4))
+        #expect(!merged.needsCompacting(5, fragments: page5))
+        // An empty answer removes the page's concepts: its passages no longer belong together.
+        let emptied = HighlightGrouping.merging([], compacted: [4], fragments: [4: page4], into: merged)
+        #expect(emptied.concepts == [elsewhere])
     }
 
     @Test func withoutPageTextOnlyTheFragmentsAreSent() {
-        let text = HighlightGrouping.promptText(fragments: fragments, kindNames: [:], pageText: "  ")
+        let text = HighlightGrouping.promptText(fragments: fragments, kindNames: [:], pageTexts: [4: "  "])
         #expect(text.hasPrefix("Frammenti evidenziati"))
     }
 
     @Test func asksOnlyWhenTwoPassagesShareAKind() {
         #expect(HighlightGrouping.needsAsking(fragments))
-        #expect(!HighlightGrouping.needsAsking(Array(fragments.dropFirst())))
+        #expect(!HighlightGrouping.needsAsking([page4[1], page4[3], page5[0]]))
     }
 }

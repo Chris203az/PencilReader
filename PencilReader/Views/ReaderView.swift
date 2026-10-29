@@ -114,7 +114,8 @@ struct ReaderView: View {
                     .presentationSizing(.page)
                 }
                 .sheet(isPresented: $showSummary) {
-                    MarkSummaryView(document: document) { page, openNotebook in
+                    MarkSummaryView(document: document, currentPage: model.pageIndex, pageCount: model.pageCount,
+                                    pageInfo: model.highlightPage) { page, openNotebook in
                         model.showPage(page)
                         if openNotebook { showNotebook = true }
                     }
