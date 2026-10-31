@@ -32,6 +32,8 @@ struct FixReadingView: View {
     @State private var step: Step
     @State private var first: Int
     @State private var last: Int
+    /// The AI's column beside the handwriting, once the reader has finished; they can close and reopen it.
+    @State private var showsAI = true
     @Environment(Library.self) private var library
     @Environment(\.dismiss) private var dismiss
     private let store = RecapStore.shared
@@ -77,6 +79,16 @@ struct FixReadingView: View {
                             withAnimation(.snappy) { step = .compare }
                         }
                         .buttonStyle(.borderedProminent)
+                    }
+                }
+                if step == .compare {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            withAnimation(.snappy) { showsAI.toggle() }
+                        } label: {
+                            Label(showsAI ? "Nascondi la versione dell'IA" : "Mostra la versione dell'IA",
+                                  systemImage: "sidebar.trailing")
+                        }
                     }
                 }
             }
@@ -150,8 +162,8 @@ struct FixReadingView: View {
             Divider()
             GeometryReader { geo in
                 HStack(spacing: 0) {
-                    RecapCanvas(recapID: recap.id)
-                    if step == .compare {
+                    RecapCanvas(recapID: recap.id, sheetWidth: geo.size.width)
+                    if step == .compare && showsAI {
                         Divider()
                         AIRecapColumn(recap: recap)
                             .frame(width: geo.size.width * 0.4)
@@ -303,17 +315,22 @@ struct AIRecapColumn: View {
 /// Saved at every stroke.
 struct RecapCanvas: UIViewRepresentable {
     let recapID: UUID
+    /// The width of the whole sheet: when the AI's column takes part of it, the page shrinks to fit.
+    let sheetWidth: CGFloat
 
     func makeCoordinator() -> Coordinator { Coordinator(recapID: recapID) }
 
     func makeUIView(context: Context) -> RecapSheetView {
         let view = RecapSheetView()
+        view.sheetWidth = sheetWidth
         view.canvas.drawing = RecapStore.shared.drawing(of: recapID)
         view.canvas.delegate = context.coordinator
         return view
     }
 
-    func updateUIView(_ view: RecapSheetView, context: Context) {}
+    func updateUIView(_ view: RecapSheetView, context: Context) {
+        view.sheetWidth = sheetWidth
+    }
 
     static func dismantleUIView(_ view: RecapSheetView, coordinator: Coordinator) {
         view.hideTools()
@@ -341,6 +358,17 @@ final class RecapSheetView: UIView {
     let canvas = PKCanvasView()
     private let paper = PaperView()
     private let toolPicker = PKToolPicker()
+    var sheetWidth: CGFloat = 0 {
+        didSet {
+            if sheetWidth != oldValue { setNeedsLayout() }
+        }
+    }
+
+    /// The whole page always fits the width: narrower than the sheet, it is drawn smaller.
+    private var fitZoom: CGFloat {
+        guard sheetWidth > 0, bounds.width > 0 else { return 1 }
+        return min(1, bounds.width / sheetWidth)
+    }
 
     init() {
         super.init(frame: .zero)
@@ -365,6 +393,17 @@ final class RecapSheetView: UIView {
         super.layoutSubviews()
         paper.frame = bounds
         canvas.frame = bounds
+        let zoom = fitZoom
+        if abs(canvas.zoomScale - zoom) > 0.001 {
+            // Keep the same line of the page at the top.
+            let top = canvas.contentOffset.y / canvas.zoomScale
+            canvas.minimumZoomScale = zoom
+            canvas.maximumZoomScale = zoom
+            canvas.zoomScale = zoom
+            fitContent()
+            let maxY = max(0, canvas.contentSize.height - bounds.height)
+            canvas.contentOffset = CGPoint(x: 0, y: min(max(0, top * zoom), maxY))
+        }
         fitContent()
         followScroll()
     }
@@ -384,15 +423,18 @@ final class RecapSheetView: UIView {
     /// Always room to keep writing below the last line.
     func fitContent() {
         guard bounds.height > 0 else { return }
+        let zoom = canvas.zoomScale
+        // In page points, as the drawing is.
+        let visible = bounds.height / zoom
         let bottom = canvas.drawing.strokes.isEmpty ? 0 : canvas.drawing.bounds.maxY
-        let height = max(bounds.height * 1.5, bottom + bounds.height / 2)
-        if canvas.contentSize.width != bounds.width || abs(canvas.contentSize.height - height) > 1 {
+        let height = max(visible * 1.5, bottom + visible / 2) * zoom
+        if abs(canvas.contentSize.width - bounds.width) > 1 || abs(canvas.contentSize.height - height) > 1 {
             canvas.contentSize = CGSize(width: bounds.width, height: height)
         }
     }
 
     func followScroll() {
-        paper.show(offset: canvas.contentOffset, zoom: 1)
+        paper.show(offset: canvas.contentOffset, zoom: canvas.zoomScale)
     }
 }
 
