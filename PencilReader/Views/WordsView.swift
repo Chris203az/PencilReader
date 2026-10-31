@@ -102,6 +102,11 @@ struct WordsView: View {
                     Button("Fine") { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
+                    // Also at the end of the list, but a long list hides it.
+                    Button(deleteAllTitle, systemImage: "trash", role: .destructive) { confirmsDeleteAll = true }
+                        .disabled(shown.isEmpty)
+                }
+                ToolbarItem(placement: .primaryAction) {
                     // Reviews the words in the list: this book's or all of them.
                     ReviewButton(count: reviews.dueCount(in: shown)) { showReview = true }
                 }

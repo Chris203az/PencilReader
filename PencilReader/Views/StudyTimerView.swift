@@ -278,7 +278,7 @@ private struct StudyTimerPanel: View {
             Label("Fissa la lettura", systemImage: "brain.head.profile")
                 .frame(maxWidth: .infinity)
         }
-        .tint(.indigo)
+        .tint(.accentColor)
         .accessibilityHint("Hai finito di leggere: rielabori a mano le pagine lette e le confronti con l'IA")
     }
 
@@ -308,11 +308,11 @@ private struct StudyTimerPanel: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .tint(.indigo)
+            .tint(.accentColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(.indigo.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func sessionEndText(_ end: Date, now: Date) -> String {

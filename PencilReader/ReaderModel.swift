@@ -37,8 +37,10 @@ final class ReaderModel {
     private(set) var pageImage: UIImage?
     private(set) var pageText: PageText?
     private(set) var selection: Selection?
-    var showWordBoxes = false
-    var allowsFingerDrawing = false
+    var showWordBoxes = AppSettings.bool(AppSettings.wordBoxesKey, default: false)
+    var allowsFingerDrawing = AppSettings.bool(AppSettings.fingerDrawingKey, default: false)
+    /// The page left by the last jump (search, thumbnails, index…), to go back to it.
+    private(set) var returnPage: Int?
     var translationConfig: TranslationSession.Configuration?
     var alertMessage: String?
     /// Words found by the book search, highlighted on their page.
@@ -51,6 +53,12 @@ final class ReaderModel {
     private var textCache: [Int: PageText] = [:]
     private var ocrTasks: [Int: Task<PageText, Error>] = [:]
     private let ocr = OCRService()
+
+    /// Picks up what was changed in Impostazioni while the book was open.
+    func reloadSettings() {
+        showWordBoxes = AppSettings.bool(AppSettings.wordBoxesKey, default: false)
+        allowsFingerDrawing = AppSettings.bool(AppSettings.fingerDrawingKey, default: false)
+    }
 
     var title: String { library.document(withID: document.id)?.title ?? document.title }
     var isRecognizing: Bool { pageImage != nil && pageText == nil }
@@ -76,6 +84,12 @@ final class ReaderModel {
 
     func showPage(_ index: Int) {
         guard source != nil, (0..<pageCount).contains(index) else { return }
+        // A jump, not turning one page: remember where it started. Reaching that page again forgets it.
+        if pageImage != nil, abs(index - pageIndex) > 1 {
+            returnPage = pageIndex
+        } else if index == returnPage {
+            returnPage = nil
+        }
         pageIndex = index
         selection = nil
         searchHighlight = nil
@@ -126,6 +140,32 @@ final class ReaderModel {
         guard (0..<pageCount).contains(index), let aspect = pageAspect(index) else { return nil }
         return HighlightPage(aspect: aspect, ocrURL: library.ocrURL(of: document, page: index))
     }
+
+    /// Back to where the last jump started; from there, the button leads forward again.
+    func goBack() {
+        guard let returnPage else { return }
+        showPage(returnPage)
+    }
+
+    func forgetReturnPage() { returnPage = nil }
+
+    /// The PDF's table of contents, flattened: one entry per chapter or section, with its depth.
+    @ObservationIgnored private(set) lazy var outline: [OutlineEntry] = {
+        guard case .pdf(let pdf) = source, let root = pdf.outlineRoot else { return [] }
+        var entries: [OutlineEntry] = []
+        func walk(_ item: PDFOutline, level: Int) {
+            for i in 0..<item.numberOfChildren {
+                guard let child = item.child(at: i) else { continue }
+                if let page = child.destination?.page, let label = child.label?.split(whereSeparator: \.isWhitespace).joined(separator: " "),
+                   !label.isEmpty {
+                    entries.append(OutlineEntry(title: label, page: pdf.index(for: page), level: level))
+                }
+                walk(child, level: level + 1)
+            }
+        }
+        walk(root, level: 0)
+        return entries
+    }()
 
     func nextPage() { showPage(pageIndex + 1) }
     func previousPage() { showPage(pageIndex - 1) }
@@ -286,4 +326,12 @@ final class ReaderModel {
         }
         return (sentence, nil)
     }
+}
+
+/// A chapter or section of a PDF's table of contents.
+struct OutlineEntry: Identifiable, Hashable {
+    let id = UUID()
+    let title: String
+    let page: Int
+    let level: Int
 }

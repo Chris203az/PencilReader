@@ -37,7 +37,8 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
 
     // MARK: Saved per book
 
-    private static let lastKey = "readingTheme"
+    /// Also the theme of books never set, chosen in Impostazioni.
+    static let lastKey = "readingTheme"
     private static func key(for bookID: UUID) -> String { "readingTheme.\(bookID.uuidString)" }
 
     /// The book's theme; a book never set takes the last one chosen.

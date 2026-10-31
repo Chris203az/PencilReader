@@ -8,6 +8,7 @@ struct HintButton<Label: View>: View {
     @State private var showsHint = false
     /// Set once the press became a hold, so lifting the finger does not run the action too.
     @State private var swallowsTap = false
+    @AppStorage(AppSettings.hintsKey) private var showsHints = true
 
     var body: some View {
         Button {
@@ -20,6 +21,7 @@ struct HintButton<Label: View>: View {
             label
         }
         .simultaneousGesture(LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+            guard showsHints else { return }
             swallowsTap = true
             showsHint = true
         })

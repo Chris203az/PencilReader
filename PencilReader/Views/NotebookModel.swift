@@ -41,10 +41,10 @@ final class NotebookModel {
     /// a page change is being handled, so saving always goes to the page that was written on.
     @ObservationIgnored private var canvasPage: Int?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
-    private static let paperKey = "notebookPaper"
-    private static let shapesKey = "notebookShapes"
-    private static let smoothKey = "notebookSmoothStrokes"
-    private static let strengthKey = "notebookSmoothingStrength"
+    static let paperKey = "notebookPaper"
+    static let shapesKey = "notebookShapes"
+    static let smoothKey = "notebookSmoothStrokes"
+    static let strengthKey = "notebookSmoothingStrength"
     private static let saveDelay = Duration.seconds(1)
 
     init(bookID: UUID, pageIndex: Int) {
@@ -57,6 +57,15 @@ final class NotebookModel {
         straightensShapes = UserDefaults.standard.object(forKey: Self.shapesKey) as? Bool ?? true
         smoothsStrokes = UserDefaults.standard.object(forKey: Self.smoothKey) as? Bool ?? true
         smoothingStrength = UserDefaults.standard.object(forKey: Self.strengthKey) as? Double ?? 3
+    }
+
+    /// Picks up what was changed in Impostazioni while the book was open.
+    func reloadSettings() {
+        let defaults = UserDefaults.standard
+        if let saved = defaults.string(forKey: Self.paperKey).flatMap(PaperStyle.init), saved != paper { paper = saved }
+        if let saved = defaults.object(forKey: Self.shapesKey) as? Bool, saved != straightensShapes { straightensShapes = saved }
+        if let saved = defaults.object(forKey: Self.smoothKey) as? Bool, saved != smoothsStrokes { smoothsStrokes = saved }
+        if let saved = defaults.object(forKey: Self.strengthKey) as? Double, saved != smoothingStrength { smoothingStrength = saved }
     }
 
     /// Turns to another page of the book: saves the current one, then shows the new one's note if it has one.

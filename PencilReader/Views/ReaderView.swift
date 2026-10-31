@@ -19,7 +19,12 @@ struct ReaderView: View {
     /// Kept while the book is open, so the last search is still there.
     @State private var search: BookSearch?
     @State private var showWords = false
-    @State private var showAISettings = false
+    @State private var showSettings = false
+    @State private var renaming = false
+    @State private var showOutline = false
+    @State private var newTitle = ""
+    @AppStorage(AppSettings.progressBarKey) private var showsProgressBar = true
+    @AppStorage(AppSettings.keepsScreenOnKey) private var keepsScreenOn = false
     /// Created with the model, so the notes of every page are known before the notebook opens.
     @State private var notebook: NotebookModel?
     @State private var showNotebook = false
@@ -51,20 +56,37 @@ struct ReaderView: View {
         Group {
             if let model {
                 GeometryReader { geo in
-                    HStack(spacing: 0) {
+                    // Upright, the notebook goes below the page: beside it, both would be too narrow.
+                    let stacked = geo.size.height > geo.size.width
+                    let length = stacked ? geo.size.height : geo.size.width
+                    let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+                    layout {
                         PageView(model: model, study: study, theme: theme.resolved(for: colorScheme),
                                  onExit: { dismiss() })
-                            .frame(width: pageWidth(in: geo.size.width))
+                            .overlay(alignment: .bottom) {
+                                if showsProgressBar { ReadingProgressBar(page: model.pageIndex, pageCount: model.pageCount) }
+                            }
+                            .overlay(alignment: .bottomLeading) { backButton(model) }
+                            .frame(width: stacked ? nil : pageLength(in: length),
+                                   height: stacked ? pageLength(in: length) : nil)
                         if showNotebook, let notebook {
-                            NotebookDivider(split: $split, available: geo.size.width - NotebookDivider.width)
+                            NotebookDivider(split: $split, available: length - NotebookDivider.width, stacked: stacked)
                                 // Drawn over the notebook while it is dragged across it.
                                 .zIndex(1)
                             NotebookPane(notebook: notebook)
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                     }
                     .animation(.snappy, value: showNotebook)
-                    .overlay(alignment: .bottomTrailing) { notebookButton }
+                    .overlay(alignment: .bottomTrailing) {
+                        VStack(spacing: 14) {
+                            clipButton
+                            notebookButton
+                        }
+                        .padding(20)
+                        // Above the notebook's tool bar when that sits at the bottom.
+                        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+                    }
                 }
                 .background(PopGestureDisabler())
                 .toolbar { toolbar(model) }
@@ -97,6 +119,10 @@ struct ReaderView: View {
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
+                }
+                .sheet(isPresented: $showOutline) {
+                    OutlineView(entries: model.outline, currentPage: model.pageIndex, select: model.showPage)
+                        .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showBookmarks) {
                     if let bookmarks {
@@ -148,8 +174,12 @@ struct ReaderView: View {
                     RecapListView(currentBookID: document.id)
                         .presentationSizing(.page)
                 }
-                .sheet(isPresented: $showAISettings) {
-                    AISettingsView().presentationSizing(.form)
+                .sheet(isPresented: $showSettings, onDismiss: {
+                    model.reloadSettings()
+                    notebook?.reloadSettings()
+                    keepScreenOn(true)
+                }) {
+                    SettingsView().presentationSizing(.page)
                 }
                 .sheet(isPresented: $showWords) {
                     WordsView(currentDocument: document) { word in
@@ -167,7 +197,7 @@ struct ReaderView: View {
                 ProgressView()
             }
         }
-        .navigationTitle(model?.title ?? document.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         // Own back button: the system one comes with the swipe-back gesture.
         .navigationBarBackButtonHidden(true)
@@ -180,11 +210,36 @@ struct ReaderView: View {
                     recapSheet = .open(recap)
                 }
             }
+            // On the left, away from the notebook divider; tapped, it renames the book.
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    newTitle = displayTitle
+                    renaming = true
+                } label: {
+                    Text(displayTitle)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .frame(maxWidth: 320, alignment: .leading)
+                }
+                .accessibilityHint("Rinomina il libro")
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
+        .alert("Rinomina", isPresented: $renaming) {
+            TextField("Titolo", text: $newTitle)
+            Button("Annulla", role: .cancel) {}
+            Button("Salva") {
+                if let current = library.document(withID: document.id) { library.rename(current, to: newTitle) }
+            }
         }
         // Reading time counts only while the book is open and the app is in front.
-        .onAppear { if scenePhase == .active { stats.startReading(document.id) } }
+        .onAppear {
+            if scenePhase == .active { stats.startReading(document.id) }
+            keepScreenOn(true)
+        }
         .onDisappear {
             stats.stopReading()
+            keepScreenOn(false)
             if let model { model.groupHighlights(of: model.pageIndex) }
         }
         .onAppear {
@@ -211,6 +266,10 @@ struct ReaderView: View {
         }
     }
 
+    private var displayTitle: String {
+        library.document(withID: document.id)?.displayTitle ?? document.displayTitle
+    }
+
     /// The reader has finished reading: the pages seen today up to this one, after the last recap.
     private func fixReading() {
         guard let model else { return }
@@ -222,10 +281,15 @@ struct ReaderView: View {
             lastRecapEnd: RecapStore.shared.lastRecapEnd(of: document.id)))
     }
 
-    /// The book page takes the left share of the width while the notebook is open.
-    private func pageWidth(in total: CGFloat) -> CGFloat? {
+    /// The book page takes the first share of the width (or, upright, of the height) while the notebook is open.
+    private func pageLength(in total: CGFloat) -> CGFloat? {
         guard showNotebook else { return nil }
         return (total - NotebookDivider.width) * split
+    }
+
+    /// "Schermo sempre acceso" holds only while a book is open.
+    private func keepScreenOn(_ open: Bool) {
+        UIApplication.shared.isIdleTimerDisabled = open && keepsScreenOn
     }
 
     /// Opens and closes the notebook beside the page.
@@ -242,9 +306,53 @@ struct ReaderView: View {
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
         }
         .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
-        .padding(20)
-        // Above the notebook's tool bar when that sits at the bottom.
-        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+    }
+
+    /// After a jump (search, thumbnails, index, bookmark…): back to the page it started from.
+    @ViewBuilder private func backButton(_ model: ReaderModel) -> some View {
+        if let page = model.returnPage, page != model.pageIndex {
+            HStack(spacing: 0) {
+                Button {
+                    withAnimation(.snappy) { model.goBack() }
+                } label: {
+                    Label("Torna a pag. \(page + 1)", systemImage: "arrow.uturn.backward")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.leading, 16)
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 10)
+                }
+                Button {
+                    withAnimation(.snappy) { model.forgetReturnPage() }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.trailing, 14)
+                        .padding(.vertical, 10)
+                }
+                .accessibilityLabel("Nascondi")
+            }
+            .background(.regularMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+            .padding(20)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    /// Copies a part of the screen, page and notebook alike, cut out with the Pencil.
+    /// Big and always there, above the notebook button: it is used all the time.
+    private var clipButton: some View {
+        HintButton(hint: "Ritaglia una parte dello schermo con la Pencil e la copia, pagina e quaderno insieme") {
+            ScreenClipper.start()
+        } label: {
+            Image(systemName: "scissors")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.accentColor.gradient, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+        }
+        .accessibilityLabel("Ritaglia schermo")
     }
 
     /// Recognizes the whole book in the background; shows the progress while it runs.
@@ -366,8 +474,6 @@ struct ReaderView: View {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             if let study { studyButton(study, model: model) }
-            // Copies a part of the screen, page and notebook alike, cut out with the Pencil.
-            Button("Ritaglia schermo", systemImage: "scissors") { ScreenClipper.start() }
             recognitionButton(model.document)
             Button("Riepilogo", systemImage: "list.bullet.rectangle.portrait") {
                 // So the marks and the note being written show up to date in the summary.
@@ -377,11 +483,10 @@ struct ReaderView: View {
                 model.groupHighlights(of: model.pageIndex)
                 showSummary = true
             }
-            HintButton("Note del libro", systemImage: "note.text",
-                       hint: "Elenco delle pagine con appunti nel quaderno") {
-                // So the page being written on shows up to date in the list.
-                notebook?.flush()
-                showNotes = true
+            if !model.outline.isEmpty {
+                HintButton("Indice", systemImage: "list.bullet.indent", hint: "I capitoli del libro: tocca per andarci") {
+                    showOutline = true
+                }
             }
             HintButton("Cerca nel libro", systemImage: "magnifyingglass", hint: "Cerca una parola in tutto il libro") {
                 if search == nil { search = BookSearch(document: document, library: library) }
@@ -389,24 +494,47 @@ struct ReaderView: View {
             }
             // Less used: kept in the menu so the bar stays light.
             Menu("Altro", systemImage: "ellipsis") {
-                Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
-                themeMenu
-                Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
-                Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
-                Button("Impostazioni IA", systemImage: "sparkles") { showAISettings = true }
-                Toggle(isOn: Bindable(model).showWordBoxes) {
-                    Label("Riquadri OCR", systemImage: "square.dashed")
+                Section {
+                    Button("Note del libro", systemImage: "note.text") {
+                        // So the page being written on shows up to date in the list.
+                        notebook?.flush()
+                        showNotes = true
+                    }
+                    Button("Segnalibri", systemImage: "bookmark") { showBookmarks = true }
+                    Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
+                    Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
                 }
-                Toggle(isOn: Bindable(model).allowsFingerDrawing) {
-                    Label("Disegna col dito", systemImage: "hand.draw")
+                Section {
+                    themeMenu
+                    Button("Esporta PDF", systemImage: "square.and.arrow.up") {
+                        // So what was just written is in the PDF.
+                        notebook?.flush()
+                        study?.flush()
+                        showExport = true
+                    }
                 }
-                Button("Esporta PDF", systemImage: "square.and.arrow.up") {
-                    // So what was just written is in the PDF.
-                    notebook?.flush()
-                    study?.flush()
-                    showExport = true
-                }
+                Button("Impostazioni", systemImage: "gearshape") { showSettings = true }
             }
         }
+    }
+}
+
+/// How far into the book the open page is: a thin line along the bottom of the page.
+private struct ReadingProgressBar: View {
+    let page: Int
+    let pageCount: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(Color.accentColor)
+                .frame(width: geo.size.width * Double(page + 1) / Double(max(pageCount, 1)))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: 3)
+        .background(Color.secondary.opacity(0.15))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .animation(.snappy, value: page)
     }
 }
