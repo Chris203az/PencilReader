@@ -20,8 +20,9 @@ struct OutlineView: View {
                 Text("Indice").font(.headline)
                 Spacer()
                 Button(action: close) {
-                    Image(systemName: "sidebar.left")
-                        .font(.title3)
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
                 .accessibilityLabel("Chiudi indice")
             }

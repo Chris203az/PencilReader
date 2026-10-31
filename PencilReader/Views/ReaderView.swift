@@ -78,6 +78,7 @@ struct ReaderView: View {
                                     if showsProgressBar { ReadingProgressBar(page: model.pageIndex, pageCount: model.pageCount) }
                                 }
                                 .overlay(alignment: .bottomLeading) { backButton(model) }
+                            .overlay(alignment: .leading) { if !model.outline.isEmpty { outlineTab } }
                                 .frame(width: stacked ? nil : pageLength(in: length),
                                        height: stacked ? pageLength(in: length) : nil)
                             if showNotebook, let notebook {
@@ -214,14 +215,6 @@ struct ReaderView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button(library.currentCollection.name, systemImage: "chevron.left") { dismiss() }
             }
-            // Opens and closes the chapters column, on the side where it appears.
-            if model?.outline.isEmpty == false {
-                ToolbarItem(placement: .topBarLeading) {
-                    HintButton("Indice", systemImage: "sidebar.left",
-                               hint: "Apre e chiude l'indice dei capitoli a sinistra") { showOutline.toggle() }
-                        .tint(showOutline ? .accentColor : nil)
-                }
-            }
             ToolbarItem(placement: .topBarLeading) {
                 StudyTimerButton(bookID: document.id, onFix: fixReading) { recap in
                     recapSheet = .open(recap)
@@ -323,6 +316,26 @@ struct ReaderView: View {
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
         }
         .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
+    }
+
+    /// A tab half way down the left edge: opens the chapters column, and closes it from its edge.
+    private var outlineTab: some View {
+        HintButton(hint: "Apre e chiude l'indice dei capitoli") {
+            showOutline.toggle()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: "list.bullet.indent")
+                    .font(.body.weight(.semibold))
+                Image(systemName: showOutline ? "chevron.left" : "chevron.right")
+                    .font(.caption.weight(.bold))
+            }
+            .foregroundStyle(.white)
+            .frame(width: 36, height: 88)
+            .background(Color.accentColor.gradient,
+                        in: UnevenRoundedRectangle(bottomTrailingRadius: 14, topTrailingRadius: 14, style: .continuous))
+            .shadow(color: .black.opacity(0.2), radius: 4, x: 1)
+        }
+        .accessibilityLabel(showOutline ? "Chiudi indice" : "Apri indice")
     }
 
     /// After a jump (search, thumbnails, index, bookmark…): back to the page it started from.
