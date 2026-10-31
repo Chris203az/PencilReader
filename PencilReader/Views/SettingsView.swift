@@ -9,9 +9,34 @@ enum AppSettings {
     static let keepsScreenOnKey = "reader.keepsScreenOn"
     static let hintsKey = "app.showsHints"
     static let continueReadingKey = "library.showsContinueReading"
+    static let appearanceKey = "app.appearance"
 
     static func bool(_ key: String, default value: Bool) -> Bool {
         UserDefaults.standard.object(forKey: key) as? Bool ?? value
+    }
+}
+
+/// Light or dark for the whole app, or as the iPad is set.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: "Sistema"
+        case .light: "Chiaro"
+        case .dark: "Scuro"
+        }
+    }
+
+    /// `nil` follows the iPad.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 }
 
@@ -21,6 +46,7 @@ struct SettingsView: View {
     @Environment(StudyTimer.self) private var studyTimer
 
     @AppStorage(AppSettings.continueReadingKey) private var showsContinueReading = true
+    @AppStorage(AppSettings.appearanceKey) private var appearance = AppAppearance.system
     @AppStorage(AppSettings.progressBarKey) private var showsProgressBar = true
     @AppStorage(AppSettings.keepsScreenOnKey) private var keepsScreenOn = false
     @AppStorage(AppSettings.wordBoxesKey) private var showsWordBoxes = false
@@ -55,6 +81,19 @@ struct SettingsView: View {
         @Bindable var timer = studyTimer
         NavigationStack {
             Form {
+                Section {
+                    Picker(selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                    } label: {
+                        SettingsRow("Aspetto", systemImage: "circle.lefthalf.filled", color: .indigo)
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Aspetto dell'app")
+                } footer: {
+                    Text("«Sistema» segue l'iPad. Il tema della pagina del libro si sceglie a parte, qui sotto in Lettura.")
+                }
+
                 Section {
                     NavigationLink {
                         AISettingsForm()
