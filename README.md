@@ -2,113 +2,115 @@
 
 # ✏️ PencilReader
 
-**Studia sui libri tecnici in inglese con la Apple Pencil.**
-Cerchia una parola e la traduci. Evidenzia, scrivi a margine, prendi appunti accanto alla pagina, ripassa.
-Tutto in un'app sola per iPad, sul dispositivo, gratis e senza account.
+**Study English technical books on iPad with the Apple Pencil.**
+Circle a word to translate it. Highlight, write in the margin, take notes beside the page, review.
+One iPad app that does all of it on device, for free, with no account.
 
-![Versione](https://img.shields.io/badge/versione-1.0-4554DA)
+![Version](https://img.shields.io/badge/version-1.0-4554DA)
 ![iPadOS](https://img.shields.io/badge/iPadOS-26%2B-black?logo=apple)
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI-F05138?logo=swift&logoColor=white)
-![Test](https://img.shields.io/badge/test-217%20passati-34C759)
+![Tests](https://img.shields.io/badge/tests-217%20passing-34C759)
 
-<img src="docs/screenshots/libreria.png" width="820" alt="La libreria con la scheda Continua a leggere">
+<img src="docs/screenshots/library.png" width="820" alt="The library with the Continue reading card">
 
 </div>
 
 ---
 
-## Perché PencilReader
+## Why PencilReader
 
-Leggere un manuale di ingegneria in inglese vuol dire fermarsi ogni tre righe: aprire il traduttore, copiare la frase, perdere il filo. PencilReader toglie questi passaggi: **cerchi la parola con la Pencil e la traduzione compare lì, dentro la sua frase**. Intorno ci sono gli strumenti per studiare davvero: evidenziatori con un significato preciso, un quaderno accanto alla pagina, il ripasso delle parole e un timer di studio.
+Reading an engineering handbook in a second language means stopping every few lines: open a translator, copy the sentence, lose the thread. PencilReader removes those steps. **Circle the word with the Pencil and the translation appears right there, inside its sentence.** Around it sit the tools for real studying: highlighters with a fixed meaning, a notebook beside the page, spaced-repetition review and a study timer.
 
-## ✨ In breve
+> The app's interface is in Italian: it translates English texts into Italian.
+
+## ✨ At a glance
 
 | | |
 |---|---|
-| 🔍 **Cerchia e traduci** | Traduzione EN→IT della frase intera, con le parole cerchiate evidenziate. Pronuncia inglese con un tocco. |
-| 🖍️ **Modalità studio** | Concetto, formula, da rivedere, termine, nota a margine. Il riepilogo raccoglie tutti i segni del libro. |
-| 📓 **Quaderno accanto alla pagina** | Una nota per ogni pagina, forme che si raddrizzano da sole, lazo, righello. |
-| 🧠 **Ripasso** | Flashcard delle parole cercate con ripetizione spaziata, rielaborazione delle pagine lette. |
-| ⏱️ **Timer di studio** | Pomodoro regolabile, letture a tempo, statistiche giornaliere. |
-| 📑 **Indice e salti** | Colonna dei capitoli a sinistra, ricerca nel libro, «Torna a pag. X» dopo ogni salto. |
-| ☁️ **Backup** | Copia automatica di libri, note e segni in una cartella di File o di iCloud Drive. |
+| 🔍 **Circle and translate** | English → Italian translation of the whole sentence, with the circled words highlighted. English pronunciation with one tap. |
+| 🖍️ **Study mode** | Concept, formula, to review, term, margin note. A summary gathers every mark in the book. |
+| 📓 **Notebook beside the page** | One note per page, shapes that straighten themselves, lasso, ruler. |
+| 🧠 **Review** | Flashcards of the words you looked up, with spaced repetition; recaps of the pages you read. |
+| ⏱️ **Study timer** | Adjustable Pomodoro, timed reading sessions, daily statistics. |
+| 📑 **Outline and jumps** | Chapters column on the left, full-text search, "Back to page X" after every jump. |
+| ☁️ **Backup** | Automatic copy of books, notes and marks to a folder in Files or iCloud Drive. |
 
 <p align="center">
-  <img src="docs/screenshots/indice.png" width="49%" alt="Indice dei capitoli nella colonna a sinistra">
-  <img src="docs/screenshots/studio-quaderno.png" width="49%" alt="Modalità studio e quaderno accanto alla pagina">
+  <img src="docs/screenshots/outline.png" width="49%" alt="Chapters in the left column">
+  <img src="docs/screenshots/study-notebook.png" width="49%" alt="Study mode with the notebook beside the page">
 </p>
 
-## 📚 Libreria
+## 📚 Library
 
-- Importa **PDF**, **foto** e **scansioni** fatte con la fotocamera; organizza i libri in più librerie.
-- In alto la scheda **«Continua a leggere»**: l'ultimo libro, la pagina, il tempo di lettura e un pulsante per riprendere.
-- Copertine tutte della stessa forma e titoli puliti dai nomi dei file; il pulsante **«…»** su ogni libro per rinominarlo, spostarlo o eliminarlo.
-- **Statistiche** sempre in alto a sinistra: tempo per libro e per giorno, pagine viste, grafico della settimana.
-- **Ripasso** con il numero di parole da ripassare oggi, e il menu **Studio** con rielaborazioni e parole cercate.
+- Import **PDFs**, **photos** and **camera scans**; organize books in several libraries.
+- A **Continue reading** card on top: the last book, its page, reading time and a button to pick up where you left off.
+- Covers all share one shape and titles are cleaned from file names; the **"…"** button on each book renames, moves or deletes it.
+- **Statistics** always top left: time per book and per day, pages viewed, a weekly chart.
+- **Review** shows how many words are due today; the **Study** menu holds recaps and looked-up words.
 
-## 🔍 Lettura e traduzione
+## 🔍 Reading and translation
 
-- Il testo di ogni pagina viene riconosciuto sul dispositivo (Vision), anche per tutto il libro in sottofondo.
-- **Cerchia una parola con la Pencil**: traduzione italiana della frase intera (framework Translation di Apple), dizionario di sistema, copia.
-- **Ascolta**: la pronuncia inglese della parola cerchiata.
-- **Chiedi all'IA** (facoltativo): spiegazione breve del termine e del suo senso in quella frase, con Gemini o DeepSeek e la tua chiave.
-- **Indice del PDF** in una colonna a sinistra, aperta e chiusa da una linguetta sul bordo: segue il capitolo che stai leggendo.
-- **«Torna a pag. X»** dopo ogni salto da indice, ricerca, miniature o segnalibri.
-- Ricerca in tutto il libro, griglia delle pagine, segnalibri con nome, zoom con le dita.
-- Temi della pagina **Normale, Seppia, Notte** o come il sistema, scelti libro per libro.
-- **Ritaglio dello schermo** con un grande pulsante sempre a portata: disegni attorno a una zona con la Pencil e la copi.
-- Barra di avanzamento sottile in fondo alla pagina; tenendo premuto un comando compare cosa fa.
+- Each page's text is recognized on device (Vision), also for the whole book in the background.
+- **Circle a word with the Pencil**: Italian translation of the whole sentence (Apple's Translation framework), system dictionary, copy.
+- **Listen**: the English pronunciation of the circled word.
+- **Ask the AI** (optional): a short explanation of the term and of its meaning in that sentence, with Gemini or DeepSeek and your own key.
+- **PDF outline** in a column on the left, opened and closed by a tab on the edge; it follows the chapter you are reading.
+- **"Back to page X"** after every jump from the outline, search, thumbnails or bookmarks.
+- Full-text search, page grid, named bookmarks, pinch to zoom.
+- Page themes **Normal, Sepia, Night** or follow the system, chosen per book.
+- **Screen clipping** with a big button always at hand: draw around an area with the Pencil and it is copied.
+- A thin progress bar under the page; holding a command shows what it does.
 
-## 🖍️ Modalità studio
+## 🖍️ Study mode
 
-- Evidenziatori **arancione** (concetto), **azzurro** (formula) e **rosa** (da rivedere) che seguono la riga e non si scuriscono ripassando; sottolineatura dei termini e penna per le domande a margine.
-- Una **guida** spiega come studiare con i segni, secondo la ricerca sull'apprendimento.
-- Il **riepilogo** ritaglia tutti i segni dalle pagine e li raggruppa per colore, con salto alla pagina.
-- Con l'IA, i pezzi staccati dello stesso concetto diventano **una scheda sola** con il nome del concetto.
+- **Orange** (concept), **blue** (formula) and **pink** (to review) highlighters that follow the line and do not darken when stroked twice; underline for terms and a pen for questions in the margin.
+- A **guide** explains how to study with marks, based on research on learning from text.
+- The **summary** cuts every mark out of its page and groups them by color, with a jump to the page.
+- With the AI, separate pieces of the same concept become **one card** named after the concept.
 
-## 📓 Quaderno
+## 📓 Notebook
 
-- Un quaderno accanto a ogni pagina (sotto la pagina con l'iPad in verticale), con il divisore da trascinare.
-- A quadretti, a righe o bianco; barra degli strumenti in alto o in basso, personalizzabile.
-- Tenendo fermo il tratto diventa una **forma** (linee, archi, curve, figure), modificabile toccandola.
-- **Lazo** con menu sotto la selezione, gomma a pixel o a tratto intero, righello, levigatura dei tratti regolabile.
-- Scorri a destra per annullare, a sinistra per ripetere.
+- A notebook beside every page (below it when the iPad is upright), with a draggable divider.
+- Grid, lined or blank paper; tool bar on top or at the bottom, customizable.
+- Hold the stroke still and it becomes a **shape** (lines, arcs, curves, polygons), editable with a tap.
+- **Lasso** with a menu under the selection, pixel or whole-stroke eraser, ruler, adjustable stroke smoothing.
+- Swipe right to undo, left to redo.
 
-## 🧠 Ripasso e timer
+## 🧠 Review and timer
 
-- **Parole cercate** salvate per libro, filtrabili, esportabili in un file di testo; si cancellano tutte con un tocco.
-- **Flashcard** con ripetizione spaziata (SM-2 semplificato).
-- **Fissa la lettura**: a fine lettura rielabori a mano le pagine lette e le confronti con l'IA; le rielaborazioni restano da rileggere.
-- **Timer Pomodoro** (25/5 regolabile) e lettura a tempo, con notifica a fine blocco.
+- **Looked-up words** saved per book, filterable, exportable to a text file; delete them all with one tap.
+- **Flashcards** with spaced repetition (simplified SM-2).
+- **Fix your reading**: after reading, rewrite the pages in your own words by hand and compare with the AI; recaps stay there to reread.
+- **Pomodoro timer** (25/5, adjustable) and timed reading, with a notification at the end of each block.
 
-## ⚙️ Impostazioni, aspetto e backup
+## ⚙️ Settings, appearance and backup
 
 <p align="center">
-  <img src="docs/screenshots/impostazioni.png" width="49%" alt="Le Impostazioni">
-  <img src="docs/screenshots/tema-scuro.png" width="49%" alt="La libreria in modalità scura">
+  <img src="docs/screenshots/settings.png" width="49%" alt="Settings">
+  <img src="docs/screenshots/dark-mode.png" width="49%" alt="The library in dark mode">
 </p>
 
-- **Una sola schermata** con tutto: IA, libreria, lettura, quaderno, timer, studio, esportazione, backup e dati, con interruttori per gli on/off.
-- **Aspetto dell'app**: Sistema, Chiaro o Scuro.
-- **Schermo sempre acceso** mentre leggi, suggerimenti, tema dei libri nuovi, cerchiare col dito.
-- **Backup** in una cartella a scelta, anche in iCloud Drive: automatico una volta al giorno, manuale o ripristino. Copia libri, parole, statistiche, note del quaderno, segni di studio, segnalibri, concetti IA e impostazioni; restano gli ultimi 5.
-- **Esporta in PDF** il libro annotato, con i segni di studio e le note del quaderno affiancate o in pagine a parte.
+- **One screen** for everything: AI, library, reading, notebook, timer, study, export, backup and data, with switches for every on/off option.
+- **App appearance**: System, Light or Dark.
+- **Keep the screen on** while reading, hints, theme for new books, circling with a finger.
+- **Backup** to a folder of your choice, iCloud Drive included: automatic once a day, on demand, or restore. It copies books, words, statistics, notebook notes, study marks, bookmarks, AI concepts and settings; the last 5 are kept.
+- **Export to PDF** the annotated book, with study marks and notebook notes side by side or on pages of their own.
 
 ## 🔒 Privacy
 
-Libri, note e parole restano sull'iPad. La traduzione e il riconoscimento del testo funzionano sul dispositivo. Solo «Chiedi all'IA» e i concetti del riepilogo, se li attivi, mandano il testo interessato al servizio scelto, con la tua chiave salvata nel Portachiavi.
+Books, notes and words stay on the iPad. Translation and text recognition run on device. Only "Ask the AI" and the summary's concepts, if you turn them on, send the text involved to the chosen service, with your key stored in the Keychain.
 
-## 🛠️ Struttura
+## 🛠️ Structure
 
-- `PencilReader/`: l'app SwiftUI.
-- `ReaderCore/`: la logica pura (lazo, testo della pagina, ricerca, parole e ripasso, forme e levigatura, segni di studio e riepilogo, segnalibri, ritaglio, esportazione PDF, Pomodoro, statistiche), testabile su macOS con `swift test`.
-- `project.yml`: progetto Xcode generato con [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+- `PencilReader/`: the SwiftUI app.
+- `ReaderCore/`: the pure logic (lasso selection, page text, search, words and review, shapes and smoothing, study marks and summary, bookmarks, clipping, PDF export, Pomodoro, statistics), testable on macOS with `swift test`.
+- `project.yml`: Xcode project generated with [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
-## 📲 Installazione
+## 📲 Installation
 
-Serve un Mac con Xcode e XcodeGen (`brew install xcodegen`).
+You need a Mac with Xcode and XcodeGen (`brew install xcodegen`).
 
-**Con SideStore (consigliato, si rinnova da solo sull'iPad):** compila un `.ipa` non firmato e installalo da SideStore.
+**With SideStore (recommended, it renews itself on the iPad):** build an unsigned `.ipa` and install it from SideStore.
 
 ```bash
 xcodegen generate
@@ -117,8 +119,8 @@ xcodebuild -project PencilReader.xcodeproj -target PencilReader -configuration R
 mkdir -p Payload && cp -R build/Release-iphoneos/PencilReader.app Payload/ && zip -qr PencilReader.ipa Payload
 ```
 
-**Con il cavo e Xcode:** con l'iPad collegato e sbloccato, `./installa.sh`. Con un account Apple gratuito l'app va reinstallata ogni 7 giorni.
+**With a cable and Xcode:** with the iPad connected and unlocked, run `./install.sh`. With a free Apple account the app has to be reinstalled every 7 days.
 
-## 🚧 Da sviluppare
+## 🚧 Roadmap
 
-- **Riordino della scrittura nel quaderno**: raddrizza le righe scritte a mano e le mette dentro i quadretti. Tolto dall'app finché non funziona bene; il codice (HandwritingTidier, NotebookTidying) è nel ramo locale `riordino-da-sviluppare` sul Mac, non pubblicato.
+- **Tidying handwriting in the notebook**: straightens handwritten lines and fits them into the grid. Removed from the app until it works well; the code (HandwritingTidier, NotebookTidying) lives in the local branch `riordino-da-sviluppare`, not published.
