@@ -38,6 +38,8 @@ struct TranslationPanel: View {
 
             if selection.translation != nil {
                 HStack {
+                    Button("Ascolta", systemImage: "speaker.wave.2") { Pronouncer.speak(selection.text) }
+                        .accessibilityLabel("Ascolta la pronuncia inglese")
                     if UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: selection.text) {
                         Button("Dizionario", systemImage: "character.book.closed") { showDictionary = true }
                     }

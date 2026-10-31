@@ -21,6 +21,7 @@ struct ReaderView: View {
     @State private var showWords = false
     @State private var showSettings = false
     @State private var renaming = false
+    @State private var showOutline = false
     @State private var newTitle = ""
     @AppStorage(AppSettings.progressBarKey) private var showsProgressBar = true
     @AppStorage(AppSettings.keepsScreenOnKey) private var keepsScreenOn = false
@@ -65,6 +66,7 @@ struct ReaderView: View {
                             .overlay(alignment: .bottom) {
                                 if showsProgressBar { ReadingProgressBar(page: model.pageIndex, pageCount: model.pageCount) }
                             }
+                            .overlay(alignment: .bottomLeading) { backButton(model) }
                             .frame(width: stacked ? nil : pageLength(in: length),
                                    height: stacked ? pageLength(in: length) : nil)
                         if showNotebook, let notebook {
@@ -117,6 +119,10 @@ struct ReaderView: View {
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
+                }
+                .sheet(isPresented: $showOutline) {
+                    OutlineView(entries: model.outline, currentPage: model.pageIndex, select: model.showPage)
+                        .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showBookmarks) {
                     if let bookmarks {
@@ -302,6 +308,37 @@ struct ReaderView: View {
         .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
     }
 
+    /// After a jump (search, thumbnails, index, bookmark…): back to the page it started from.
+    @ViewBuilder private func backButton(_ model: ReaderModel) -> some View {
+        if let page = model.returnPage, page != model.pageIndex {
+            HStack(spacing: 0) {
+                Button {
+                    withAnimation(.snappy) { model.goBack() }
+                } label: {
+                    Label("Torna a pag. \(page + 1)", systemImage: "arrow.uturn.backward")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.leading, 16)
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 10)
+                }
+                Button {
+                    withAnimation(.snappy) { model.forgetReturnPage() }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.trailing, 14)
+                        .padding(.vertical, 10)
+                }
+                .accessibilityLabel("Nascondi")
+            }
+            .background(.regularMaterial, in: Capsule())
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+            .padding(20)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
     /// Copies a part of the screen, page and notebook alike, cut out with the Pencil.
     /// Big and always there, above the notebook button: it is used all the time.
     private var clipButton: some View {
@@ -445,6 +482,11 @@ struct ReaderView: View {
                 // The page open now joins the summary's groups as soon as the AI answers.
                 model.groupHighlights(of: model.pageIndex)
                 showSummary = true
+            }
+            if !model.outline.isEmpty {
+                HintButton("Indice", systemImage: "list.bullet.indent", hint: "I capitoli del libro: tocca per andarci") {
+                    showOutline = true
+                }
             }
             HintButton("Cerca nel libro", systemImage: "magnifyingglass", hint: "Cerca una parola in tutto il libro") {
                 if search == nil { search = BookSearch(document: document, library: library) }
