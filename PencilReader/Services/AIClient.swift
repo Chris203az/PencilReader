@@ -27,7 +27,8 @@ enum AIClient {
 
     /// "Chiedi all'IA": a short explanation of a circled term.
     static func explain(term: String, context: String?) async throws(ExplanationError) -> WordExplanation {
-        try GeminiExplainer.explanation(fromModelText: await ask(GeminiExplainer.prompt(term: term, context: context),
+        try GeminiExplainer.explanation(fromModelText: await ask(GeminiExplainer.prompt(term: term, context: context,
+                                                                                         languages: TranslationLanguages.current),
                                                                  for: .ask))
     }
 

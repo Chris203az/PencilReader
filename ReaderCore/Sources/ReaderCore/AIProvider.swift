@@ -18,22 +18,22 @@ public enum AIProvider: String, CaseIterable, Identifiable, Sendable {
     /// Shown next to the name in the settings.
     public var note: String {
         switch self {
-        case .google: "Gratuito con Google AI Studio"
-        case .deepseek: "A pagamento, serve credito sull'account"
+        case .google: String(localized: "Gratuito con Google AI Studio")
+        case .deepseek: String(localized: "A pagamento, serve credito sull'account")
         }
     }
 
     public var keyName: String {
         switch self {
-        case .google: "Chiave API di Google AI Studio"
-        case .deepseek: "Chiave API di DeepSeek"
+        case .google: String(localized: "Chiave API di Google AI Studio")
+        case .deepseek: String(localized: "Chiave API di DeepSeek")
         }
     }
 
     public var keyPage: (title: String, url: URL) {
         switch self {
-        case .google: ("Crea una chiave gratuita su Google AI Studio", URL(string: "https://aistudio.google.com/apikey")!)
-        case .deepseek: ("Crea una chiave sulla piattaforma DeepSeek", URL(string: "https://platform.deepseek.com/api_keys")!)
+        case .google: (String(localized: "Crea una chiave gratuita su Google AI Studio"), URL(string: "https://aistudio.google.com/apikey")!)
+        case .deepseek: (String(localized: "Crea una chiave sulla piattaforma DeepSeek"), URL(string: "https://platform.deepseek.com/api_keys")!)
         }
     }
 
@@ -66,15 +66,15 @@ public enum AIFeature: String, CaseIterable, Identifiable, Sendable {
 
     public var title: String {
         switch self {
-        case .ask: "Chiedi all'IA"
-        case .study: "Altre funzioni"
+        case .ask: String(localized: "Chiedi all'IA")
+        case .study: String(localized: "Altre funzioni")
         }
     }
 
     public var detail: String {
         switch self {
-        case .ask: "La spiegazione della parola cerchiata, nel riquadro della traduzione."
-        case .study: "I concetti chiave del riepilogo e le altre funzioni di studio."
+        case .ask: String(localized: "La spiegazione della parola cerchiata, nel riquadro della traduzione.")
+        case .study: String(localized: "I concetti chiave del riepilogo e le altre funzioni di studio.")
         }
     }
 

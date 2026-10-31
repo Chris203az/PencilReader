@@ -38,7 +38,7 @@ enum PDFExportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unreadableBook: "Impossibile aprire il PDF del libro."
+        case .unreadableBook: String(localized: "Impossibile aprire il PDF del libro.")
         }
     }
 }
@@ -126,7 +126,7 @@ enum PDFExporter {
                     drawBook()
                 } else {
                     fillWhite(bookRect, context.cgContext)
-                    drawCaption("Nota di pagina \(index + 1), continua (\(i + 1)/\(slices.count))",
+                    drawCaption(String(localized: "Nota di pagina \(index + 1), continua (\(i + 1)/\(slices.count))"),
                                 in: bookRect.insetBy(dx: notePageMargin, dy: notePageMargin))
                 }
                 drawNote(note, slice: slice, in: column, job: job, context: context.cgContext)
@@ -143,8 +143,8 @@ enum PDFExporter {
             for (i, slice) in slices.enumerated() {
                 context.beginPage(withBounds: bookRect, pageInfo: [:])
                 fillWhite(bookRect, context.cgContext)
-                drawCaption(slices.count > 1 ? "Nota di pagina \(index + 1) (\(i + 1)/\(slices.count))"
-                                             : "Nota di pagina \(index + 1)", in: inner)
+                drawCaption(slices.count > 1 ? String(localized: "Nota di pagina \(index + 1) (\(i + 1)/\(slices.count))")
+                                             : String(localized: "Nota di pagina \(index + 1)"), in: inner)
                 drawNote(note, slice: slice, in: box, job: job, context: context.cgContext)
             }
             return 1 + slices.count

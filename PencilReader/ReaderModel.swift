@@ -74,7 +74,7 @@ final class ReaderModel {
         }
         library.markOpened(document)
         if source == nil {
-            alertMessage = "Impossibile aprire il documento."
+            alertMessage = String(localized: "Impossibile aprire il documento.")
         } else {
             showPage(min(max(document.lastPage, 0), pageCount - 1))
         }
@@ -195,7 +195,7 @@ final class ReaderModel {
             if index + 1 < pageCount { _ = try? await recognizedText(for: index + 1) }
         } catch is CancellationError {
         } catch {
-            if pageIndex == index { alertMessage = "Riconoscimento del testo non riuscito: \(error.localizedDescription)" }
+            if pageIndex == index { alertMessage = String(localized: "Riconoscimento del testo non riuscito: \(error.localizedDescription)") }
         }
     }
 
@@ -250,11 +250,13 @@ final class ReaderModel {
                               anchor: CGRect(boundingPoints: stroke).normalized(in: imageFrame),
                               text: text,
                               context: pageText.contextSentences(for: ids))
-        if translationConfig == nil {
-            translationConfig = .init(source: Locale.Language(identifier: "en"),
-                                      target: Locale.Language(identifier: "it"))
-        } else {
+        let languages = TranslationLanguages.current
+        let source = Locale.Language(identifier: languages.source)
+        let target = Locale.Language(identifier: languages.target)
+        if translationConfig?.source == source && translationConfig?.target == target {
             translationConfig?.invalidate()
+        } else {
+            translationConfig = .init(source: source, target: target)
         }
     }
 
@@ -300,7 +302,7 @@ final class ReaderModel {
                                    page: pageIndex, date: .now))
         } catch {
             guard selection?.id == current.id else { return }
-            selection?.error = "Traduzione non disponibile: \(error.localizedDescription)"
+            selection?.error = String(localized: "Traduzione non disponibile: \(error.localizedDescription)")
         }
     }
 

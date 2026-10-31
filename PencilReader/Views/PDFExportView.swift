@@ -162,7 +162,7 @@ struct PDFExportView: View {
                 Button {
                     model.start(job())
                 } label: {
-                    Label("Esporta \(pages.count) \(pages.count == 1 ? "pagina" : "pagine")",
+                    Label(pages.count == 1 ? "Esporta 1 pagina" : "Esporta \(pages.count) pagine",
                           systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
@@ -173,19 +173,19 @@ struct PDFExportView: View {
 
     private var pagesSummary: String {
         switch pageChoice {
-        case .all: "Tutte le \(document.pageCount) pagine del libro."
-        case .range: "Dalla pagina \(firstPage) alla \(max(firstPage, lastPage))."
+        case .all: String(localized: "Tutte le \(document.pageCount) pagine del libro.")
+        case .range: String(localized: "Dalla pagina \(firstPage) alla \(max(firstPage, lastPage)).")
         case .annotated: annotatedPages.isEmpty
-            ? "Nessuna pagina ha ancora segni o note."
-            : "Le \(pages.count) pagine con segni della modalità studio o una nota."
+            ? String(localized: "Nessuna pagina ha ancora segni o note.")
+            : String(localized: "Le \(pages.count) pagine con segni della modalità studio o una nota.")
         }
     }
 
     private var layoutSummary: String {
         switch noteLayout {
-        case .none: "Solo le pagine del libro."
-        case .beside: "Pagina del libro a sinistra e nota a destra, come sullo schermo. Una nota lunga continua sulla pagina dopo."
-        case .after: "Ogni nota su una pagina sua, subito dopo la pagina del libro."
+        case .none: String(localized: "Solo le pagine del libro.")
+        case .beside: String(localized: "Pagina del libro a sinistra e nota a destra, come sullo schermo. Una nota lunga continua sulla pagina dopo.")
+        case .after: String(localized: "Ogni nota su una pagina sua, subito dopo la pagina del libro.")
         }
     }
 

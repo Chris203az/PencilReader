@@ -491,28 +491,28 @@ extension LassoEditor: UIEditMenuInteractionDelegate {
                              suggestedActions: [UIMenuElement]) -> UIMenu? {
         if configuration.identifier as? NSString == Self.pasteMenu {
             let point = pastePoint
-            return UIMenu(children: [UIAction(title: "Incolla", image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
+            return UIMenu(children: [UIAction(title: String(localized: "Incolla"), image: UIImage(systemName: "doc.on.clipboard")) { [weak self] _ in
                 if let point { self?.paste(at: point) }
             }])
         }
         guard selection != nil else { return nil }
         let colors = palette.enumerated().map { index, color in
-            UIAction(title: "Colore \(index + 1)",
+            UIAction(title: String(localized: "Colore \(index + 1)"),
                      image: UIImage(systemName: "circle.fill")?.withTintColor(color, renderingMode: .alwaysOriginal)) { [weak self] _ in
                 self?.recolor(color)
             }
         }
         return UIMenu(children: [
-            UIAction(title: "Copia", image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in self?.copySelection() },
-            UIAction(title: "Taglia", image: UIImage(systemName: "scissors")) { [weak self] _ in
+            UIAction(title: String(localized: "Copia"), image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in self?.copySelection() },
+            UIAction(title: String(localized: "Taglia"), image: UIImage(systemName: "scissors")) { [weak self] _ in
                 self?.copySelection()
                 self?.deleteSelection()
             },
-            UIAction(title: "Duplica", image: UIImage(systemName: "plus.square.on.square")) { [weak self] _ in self?.duplicate() },
-            UIAction(title: "Elimina", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+            UIAction(title: String(localized: "Duplica"), image: UIImage(systemName: "plus.square.on.square")) { [weak self] _ in self?.duplicate() },
+            UIAction(title: String(localized: "Elimina"), image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
                 self?.deleteSelection()
             },
-            UIMenu(title: "Cambia colore", image: UIImage(systemName: "paintpalette"), children: colors)
+            UIMenu(title: String(localized: "Cambia colore"), image: UIImage(systemName: "paintpalette"), children: colors)
         ])
     }
 

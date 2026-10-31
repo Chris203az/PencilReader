@@ -18,7 +18,7 @@ public struct Bookmark: Codable, Sendable, Hashable, Identifiable {
 
     public var title: String { customTitle ?? Self.defaultTitle(page: page) }
 
-    public static func defaultTitle(page: Int) -> String { "Pagina \(page + 1)" }
+    public static func defaultTitle(page: Int) -> String { String(localized: "Pagina \(page + 1)") }
 
     public mutating func rename(_ title: String?) {
         customTitle = Self.normalized(title, page: page)

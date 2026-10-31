@@ -151,8 +151,9 @@ public enum HighlightGrouping {
     /// The question for any provider. `kindNames` gives the meaning of each kind to the model,
     /// e.g. "key" → "Concetto chiave". `pageTexts` are the whole pages, so the model sees how the
     /// pieces sit in them (a list, a definition).
-    public static func prompt(fragments: [Fragment], kindNames: [String: String], pageTexts: [Int: String]) -> AIPrompt {
-        AIPrompt(system: systemPrompt, user: promptText(fragments: fragments, kindNames: kindNames, pageTexts: pageTexts),
+    public static func prompt(fragments: [Fragment], kindNames: [String: String], pageTexts: [Int: String],
+                              languages: LanguagePair = .default) -> AIPrompt {
+        AIPrompt(system: systemPrompt(languages), user: promptText(fragments: fragments, kindNames: kindNames, pageTexts: pageTexts),
                  json: true, schema: responseSchema)
     }
 
@@ -179,9 +180,10 @@ public enum HighlightGrouping {
         ]
     }
 
-    public static let systemPrompt = """
+    public static func systemPrompt(_ languages: LanguagePair) -> String {
+        """
         Aiuti uno studente universitario di ingegneria a compattare ciò che ha evidenziato in un libro \
-        tecnico in inglese. Ogni frammento evidenziato ha una pagina e una categoria (il colore \
+        tecnico in \(languages.sourceName). Ogni frammento evidenziato ha una pagina e una categoria (il colore \
         dell'evidenziatore). Lo studente evidenzia a pezzi: una frase che annuncia qualcosa e poi, più \
         sotto o nella pagina dopo, le parti di ciò che ha annunciato. Il tuo compito è ricostruire i \
         concetti: unire i frammenti che insieme formano un'unica idea da studiare e lasciare separati \
@@ -200,13 +202,14 @@ public enum HighlightGrouping {
         poter essere studiato come una sola idea. Non unire tutto per argomento generale del capitolo.
         Regole: unisci solo frammenti della stessa categoria; ogni frammento deve comparire in \
         esattamente un gruppo.
-        Per ogni gruppo scrivi in italiano, senza Markdown:
+        Per ogni gruppo scrivi in \(languages.targetName), senza Markdown:
         - un titolo di 2-6 parole che nomina il concetto (es. "Ipotesi del modello Q1D");
         - una sintesi: il concetto riformulato in modo compatto, in una o due frasi brevi (al massimo \
         35 parole), con i dati essenziali (simboli, condizioni, valori) e senza ripetere il titolo. \
         Per un gruppo di un solo frammento la sintesi può essere vuota.
         Rispondi solo in JSON.
         """
+    }
 
     public static func promptText(fragments: [Fragment], kindNames: [String: String], pageTexts: [Int: String] = [:]) -> String {
         let list = fragments.enumerated().map { id, fragment in

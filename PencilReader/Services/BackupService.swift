@@ -213,7 +213,7 @@ enum BackupError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noFolder: "Scegli prima la cartella dei backup."
+        case .noFolder: String(localized: "Scegli prima la cartella dei backup.")
         }
     }
 }

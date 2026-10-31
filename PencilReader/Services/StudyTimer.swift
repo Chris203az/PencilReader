@@ -50,13 +50,13 @@ final class StudyTimer {
     /// Study block number in the cycle, counted from 1.
     var blockNumber: Int { timer.blocksInCycle + (timer.phase == .focus ? 1 : 0) }
 
-    var phaseName: String { isSessionOver ? "Lettura finita" : Self.name(of: timer.phase) }
+    var phaseName: String { isSessionOver ? String(localized: "Lettura finita") : Self.name(of: timer.phase) }
 
     static func name(of phase: PomodoroPhase) -> String {
         switch phase {
-        case .focus: "Studio"
-        case .shortBreak: "Pausa breve"
-        case .longBreak: "Pausa lunga"
+        case .focus: String(localized: "Studio")
+        case .shortBreak: String(localized: "Pausa breve")
+        case .longBreak: String(localized: "Pausa lunga")
         }
     }
 
@@ -124,16 +124,16 @@ final class StudyTimer {
             guard granted, timer.endDate == endDate else { return }
             let content = UNMutableNotificationContent()
             if endsSession {
-                content.title = "Tempo di lettura finito"
-                content.body = "Hai letto per tutto il tempo che ti eri dato. Ottimo lavoro!"
+                content.title = String(localized: "Tempo di lettura finito")
+                content.body = String(localized: "Hai letto per tutto il tempo che ti eri dato. Ottimo lavoro!")
             } else if ending == .focus {
-                content.title = "Blocco di studio finito"
+                content.title = String(localized: "Blocco di studio finito")
                 content.body = next == .longBreak
-                    ? "Ottimo lavoro: concediti una pausa lunga di \(minutes) minuti."
-                    : "Fai una pausa di \(minutes) minuti."
+                    ? String(localized: "Ottimo lavoro: concediti una pausa lunga di \(minutes) minuti.")
+                    : String(localized: "Fai una pausa di \(minutes) minuti.")
             } else {
-                content.title = "Pausa finita"
-                content.body = "Pronto per un altro blocco da \(minutes) minuti?"
+                content.title = String(localized: "Pausa finita")
+                content.body = String(localized: "Pronto per un altro blocco da \(minutes) minuti?")
             }
             content.sound = .default
             let interval = max(1, endDate.timeIntervalSinceNow)

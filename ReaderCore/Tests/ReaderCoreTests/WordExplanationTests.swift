@@ -47,7 +47,7 @@ struct WordExplanationTests {
                                                        apiKey: "k"))
         let contents = body["contents"] as? [[String: Any]]
         let text = ((contents?.first?["parts"] as? [[String: Any]])?.first?["text"] as? String) ?? ""
-        #expect(text.contains("Termine inglese: \"stall\""))
+        #expect(text.contains("Termine (inglese): \"stall\""))
         #expect(text.contains("Frase in cui compare: \"The wing reached the stall angle.\""))
         #expect(text.contains("in questa frase"))
         // Asks for what the sentence means, not a literal translation of it.
@@ -63,6 +63,15 @@ struct WordExplanationTests {
         let text = GeminiExplainer.promptText(term: "stall", context: "  ")
         #expect(!text.contains("Frase in cui compare"))
         #expect(text.contains("non è disponibile"))
+    }
+
+    @Test func promptFollowsTheChosenLanguages() {
+        let languages = LanguagePair(source: "de", target: "es")
+        let prompt = GeminiExplainer.prompt(term: "Schub", context: nil, languages: languages)
+        #expect(prompt.system.contains("libro tecnico in tedesco"))
+        #expect(prompt.system.contains("Rispondi sempre in spagnolo"))
+        #expect(prompt.user.contains("Termine (tedesco): \"Schub\""))
+        #expect(GeminiExplainer.prompt(term: "thrust", context: nil).system.contains("in inglese"))
     }
 
     @Test func testRequestIsShortWithKeyInHeader() {

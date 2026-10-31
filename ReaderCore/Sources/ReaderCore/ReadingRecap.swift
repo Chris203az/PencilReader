@@ -104,21 +104,23 @@ public enum RecapWriter {
     }
 
     /// `pages` are the zero-based page numbers with their recognized text, in order.
-    public static func prompt(pages: [(page: Int, text: String)]) -> AIPrompt {
-        AIPrompt(system: systemPrompt, user: promptText(pages: pages), json: true, schema: schema)
+    public static func prompt(pages: [(page: Int, text: String)], languages: LanguagePair = .default) -> AIPrompt {
+        AIPrompt(system: systemPrompt(languages), user: promptText(pages: pages), json: true, schema: schema)
     }
 
-    static let systemPrompt = """
-        Aiuti uno studente universitario italiano di ingegneria a fissare ciò che ha appena letto in un \
-        libro tecnico in inglese. Lo studente ha già scritto a mano la sua rielaborazione: la tua serve a \
-        confrontarla, quindi deve essere breve, chiara e facile da ricordare. Rispondi in italiano, senza Markdown.
+    static func systemPrompt(_ languages: LanguagePair) -> String {
+        """
+        Aiuti uno studente universitario di ingegneria a fissare ciò che ha appena letto in un \
+        libro tecnico in \(languages.sourceName). Lo studente ha già scritto a mano la sua rielaborazione: la tua serve a \
+        confrontarla, quindi deve essere breve, chiara e facile da ricordare. Rispondi in \(languages.targetName), senza Markdown.
         Non riassumere pagina per pagina: rielabora. Ricostruisci il ragionamento dell'autore, collega i \
         concetti tra loro (cause, conseguenze, ipotesi, condizioni di validità) e di' perché contano. \
-        Usa i termini tecnici italiani corretti e, quando aiuta, il termine inglese tra parentesi. Scrivi \
+        Usa i termini tecnici corretti in \(languages.targetName) e, quando aiuta, il termine in \(languages.sourceName) tra parentesi. Scrivi \
         formule e simboli in testo semplice con caratteri Unicode (es. Isp = F/(ṁ·g₀)). Non aggiungere \
         nulla che non sia nel testo e non inventare dati. Ignora intestazioni, numeri di pagina, didascalie \
         isolate e residui del riconoscimento del testo.
         """
+    }
 
     static func promptText(pages: [(page: Int, text: String)]) -> String {
         let count = pointCount(pages: pages.count)

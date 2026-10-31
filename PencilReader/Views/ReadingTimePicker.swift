@@ -4,7 +4,7 @@ import SwiftUI
 /// Asks how long the user wants to read and shows how the time is split into study blocks and
 /// breaks. The chosen time is remembered for next time.
 struct ReadingTimePicker: View {
-    var startTitle = "Inizia a leggere"
+    var startTitle = String(localized: "Inizia a leggere")
     let onStart: (Int) -> Void
     @AppStorage("studyTimer.readingMinutes") private var minutes = 60
 
@@ -34,10 +34,10 @@ struct ReadingTimePicker: View {
 
     static func description(of plan: ReadingPlan) -> String {
         let settings = plan.settings
-        guard plan.blocks > 1 else { return "Un blocco unico da \(settings.focusMinutes) min, senza pause." }
-        var text = "\(plan.blocks) blocchi da \(settings.focusMinutes) min, pause da \(settings.shortBreakMinutes) min"
+        guard plan.blocks > 1 else { return String(localized: "Un blocco unico da \(settings.focusMinutes) min, senza pause.") }
+        var text = String(localized: "\(plan.blocks) blocchi da \(settings.focusMinutes) min, pause da \(settings.shortBreakMinutes) min")
         if ReadingPlan.breaks(blocks: plan.blocks).long > 0 {
-            text += " e una pausa lunga da \(settings.longBreakMinutes) min ogni \(settings.blocksBeforeLongBreak) blocchi"
+            text += String(localized: " e una pausa lunga da \(settings.longBreakMinutes) min ogni \(settings.blocksBeforeLongBreak) blocchi")
         }
         return text + "."
     }

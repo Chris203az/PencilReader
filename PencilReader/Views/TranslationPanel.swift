@@ -39,7 +39,7 @@ struct TranslationPanel: View {
             if selection.translation != nil {
                 HStack {
                     Button("Ascolta", systemImage: "speaker.wave.2") { Pronouncer.speak(selection.text) }
-                        .accessibilityLabel("Ascolta la pronuncia inglese")
+                        .accessibilityLabel("Ascolta la pronuncia")
                     if UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: selection.text) {
                         Button("Dizionario", systemImage: "character.book.closed") { showDictionary = true }
                     }
@@ -107,7 +107,7 @@ struct TranslationPanel: View {
             Divider()
             HStack(spacing: 8) {
                 ProgressView()
-                Text(slowAnswer ? "Ci sta mettendo un po', attendi…" : "Sto chiedendo all'IA…").foregroundStyle(.secondary)
+                Text(slowAnswer ? String(localized: "Ci sta mettendo un po', attendi…") : String(localized: "Sto chiedendo all'IA…")).foregroundStyle(.secondary)
             }
             .task {
                 // Reassures when the free tier is slow.
@@ -117,8 +117,8 @@ struct TranslationPanel: View {
         case .done(let explanation):
             Divider()
             VStack(alignment: .leading, spacing: 10) {
-                aiSection("Significato", explanation.meaning)
-                aiSection(selection.context == nil ? "Uso tipico" : "In questo contesto", explanation.inContext)
+                aiSection(String(localized: "Significato"), explanation.meaning)
+                aiSection(selection.context == nil ? String(localized: "Uso tipico") : String(localized: "In questo contesto"), explanation.inContext)
             }
         case .failed(let error):
             Divider()

@@ -135,7 +135,7 @@ public struct ReadingLog: Codable, Sendable, Equatable {
     /// "meno di 1 min", "42 min", "1 h 5 min", "3 h".
     public static func duration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds / 60)
-        if minutes < 1 { return "meno di 1 min" }
+        if minutes < 1 { return String(localized: "meno di 1 min") }
         let hours = minutes / 60, rest = minutes % 60
         if hours == 0 { return "\(minutes) min" }
         return rest == 0 ? "\(hours) h" : "\(hours) h \(rest) min"

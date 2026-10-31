@@ -85,7 +85,7 @@ struct FixReadingView: View {
 
     private var title: String {
         switch step {
-        case .range: "Fissa la lettura"
+        case .range: String(localized: "Fissa la lettura")
         case .writing, .compare: "\(recap?.bookTitle ?? "") · \(recap?.pagesLabel ?? "")"
         }
     }
@@ -171,10 +171,10 @@ private struct RecapGuide: View {
     let recap: ReadingRecap
 
     private static let prompts = [
-        "L'idea principale, in una frase",
-        "I concetti chiave e come si collegano",
-        "Un esempio, una formula o un'applicazione",
-        "Cosa non ti è ancora chiaro"
+        String(localized: "L'idea principale, in una frase"),
+        String(localized: "I concetti chiave e come si collegano"),
+        String(localized: "Un esempio, una formula o un'applicazione"),
+        String(localized: "Cosa non ti è ancora chiaro")
     ]
 
     var body: some View {
@@ -474,7 +474,7 @@ private struct RecapRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(recap.ai?.title.isEmpty == false ? recap.ai!.title : "Rielaborazione")
+                Text(recap.ai?.title.isEmpty == false ? recap.ai!.title : String(localized: "Rielaborazione"))
                     .foregroundStyle(.primary)
                 Text("\(recap.pagesLabel) · \(recap.created.formatted(.relative(presentation: .named)))")
                     .font(.subheadline)

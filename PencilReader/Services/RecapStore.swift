@@ -128,12 +128,12 @@ final class RecapStore {
             return joined.isEmpty ? nil : (page, joined)
         }
         guard !pages.isEmpty else {
-            return .failure(urls.isEmpty ? "Il libro di queste pagine non c'è più nella libreria."
-                                         : "Non ho trovato testo in queste pagine.")
+            return .failure(urls.isEmpty ? String(localized: "Il libro di queste pagine non c'è più nella libreria.")
+                                         : String(localized: "Non ho trovato testo in queste pagine."))
         }
         guard hasKey else { return .failure(ExplanationError.missingKey.message) }
         do {
-            return .success(try await RecapWriter.recap(fromModelText: AIClient.ask(RecapWriter.prompt(pages: pages),
+            return .success(try await RecapWriter.recap(fromModelText: AIClient.ask(RecapWriter.prompt(pages: pages, languages: TranslationLanguages.current),
                                                                                     for: .study)))
         } catch {
             return .failure(error.message)

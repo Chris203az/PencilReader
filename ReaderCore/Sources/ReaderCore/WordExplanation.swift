@@ -29,17 +29,17 @@ public enum ExplanationError: Error, Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .missingKey: "Serve una chiave API per il servizio IA scelto: aggiungila nelle impostazioni IA."
-        case .invalidKey: "La chiave API non è valida. Controllala nelle impostazioni."
-        case .quotaExceeded: "Limite di richieste raggiunto. Riprova tra un po'."
-        case .noCredit: "Credito esaurito sull'account del servizio IA. Ricaricalo o scegli un altro servizio nelle impostazioni."
-        case .offline: "Sei offline. Collegati a internet e riprova."
-        case .timedOut: "Il servizio non ha risposto in tempo. Riprova."
-        case .unavailable: "Il servizio è sovraccarico in questo momento. Riprova tra poco."
-        case .modelNotFound: "Il modello IA non è disponibile per questa chiave."
-        case .blocked: "Il servizio non ha voluto rispondere su questo testo."
-        case .badResponse: "Risposta non comprensibile. Riprova."
-        case .http(let code): "Errore del servizio (codice \(code)). Riprova."
+        case .missingKey: String(localized: "Serve una chiave API per il servizio IA scelto: aggiungila nelle impostazioni IA.")
+        case .invalidKey: String(localized: "La chiave API non è valida. Controllala nelle impostazioni.")
+        case .quotaExceeded: String(localized: "Limite di richieste raggiunto. Riprova tra un po'.")
+        case .noCredit: String(localized: "Credito esaurito sull'account del servizio IA. Ricaricalo o scegli un altro servizio nelle impostazioni.")
+        case .offline: String(localized: "Sei offline. Collegati a internet e riprova.")
+        case .timedOut: String(localized: "Il servizio non ha risposto in tempo. Riprova.")
+        case .unavailable: String(localized: "Il servizio è sovraccarico in questo momento. Riprova tra poco.")
+        case .modelNotFound: String(localized: "Il modello IA non è disponibile per questa chiave.")
+        case .blocked: String(localized: "Il servizio non ha voluto rispondere su questo testo.")
+        case .badResponse: String(localized: "Risposta non comprensibile. Riprova.")
+        case .http(let code): String(localized: "Errore del servizio (codice \(code)). Riprova.")
         }
     }
 }
@@ -111,8 +111,8 @@ public enum GeminiExplainer {
     }
 
     /// The explanation of a circled term, for any provider.
-    public static func prompt(term: String, context: String?) -> AIPrompt {
-        AIPrompt(system: systemPrompt, user: promptText(term: term, context: context), json: true, schema: [
+    public static func prompt(term: String, context: String?, languages: LanguagePair = .default) -> AIPrompt {
+        AIPrompt(system: systemPrompt(languages), user: promptText(term: term, context: context, languages: languages), json: true, schema: [
             "type": "OBJECT",
             "properties": [
                 meaningKey: ["type": "STRING"],
@@ -123,19 +123,21 @@ public enum GeminiExplainer {
         ])
     }
 
-    static let systemPrompt = """
-        Sei un tutor esperto che aiuta uno studente universitario italiano di ingegneria a capire un libro \
-        tecnico in inglese. Rispondi sempre in italiano, senza Markdown.
+    static func systemPrompt(_ languages: LanguagePair) -> String {
+        """
+        Sei un tutor esperto che aiuta uno studente universitario di ingegneria a capire un libro \
+        tecnico in \(languages.sourceName). Rispondi sempre in \(languages.targetName), senza Markdown.
         Dai informazioni concrete e utili per studiare, non definizioni vaghe: se il termine è un composto \
         chimico scrivi la formula e cos'è; se è una grandezza fisica scrivi simbolo, unità di misura SI ed \
         eventuale formula; se è una sigla scrivila per esteso; se è un componente o un processo spiega a cosa \
-        serve e come funziona; aggiungi un valore tipico o un esempio quando aiuta. Indica il termine italiano \
-        corretto quando esiste. Scrivi formule e simboli in testo semplice con caratteri Unicode \
+        serve e come funziona; aggiungi un valore tipico o un esempio quando aiuta. Indica il termine corretto \
+        in \(languages.targetName) quando esiste. Scrivi formule e simboli in testo semplice con caratteri Unicode \
         (es. H₂O, N₂H₄, m/s², Isp = F/(ṁ·g₀)). Non inventare dati: se non sei sicuro di un valore, omettilo.
         Sii denso ma breve: niente frasi di riempimento, non ripetere la domanda.
         """
+    }
 
-    static func promptText(term: String, context: String?) -> String {
+    static func promptText(term: String, context: String?, languages: LanguagePair = .default) -> String {
         let term = term.trimmingCharacters(in: .whitespacesAndNewlines)
         let sentence = context?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let meaning = """
@@ -144,7 +146,7 @@ public enum GeminiExplainer {
             """
         if sentence.isEmpty {
             return """
-                Termine inglese: "\(term)"
+                Termine (\(languages.sourceName)): "\(term)"
                 (La frase in cui compare non è disponibile.)
 
                 Rispondi in JSON con due campi:
@@ -153,7 +155,7 @@ public enum GeminiExplainer {
                 """
         }
         return """
-            Termine inglese: "\(term)"
+            Termine (\(languages.sourceName)): "\(term)"
             Frase in cui compare: "\(sentence)"
 
             Rispondi in JSON con due campi:

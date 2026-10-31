@@ -24,9 +24,9 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .system: "Sistema"
-        case .light: "Chiaro"
-        case .dark: "Scuro"
+        case .system: String(localized: "Sistema")
+        case .light: String(localized: "Chiaro")
+        case .dark: String(localized: "Scuro")
         }
     }
 
@@ -37,6 +37,38 @@ enum AppAppearance: String, CaseIterable, Identifiable {
         case .light: .light
         case .dark: .dark
         }
+    }
+}
+
+/// The language of the interface: as the iPad is set, or one of the app's own.
+/// iOS reads it only at launch, so a change applies the next time the app opens.
+enum AppLanguage {
+    static let languagesKey = "AppleLanguages"
+
+    /// The languages the app is translated into, Italian first.
+    static var available: [String] {
+        Bundle.main.localizations.filter { $0 != "Base" }.sorted { $0 == "it" || ($1 != "it" && $0 < $1) }
+    }
+
+    /// The language chosen in the app, `nil` when it follows the iPad.
+    static var chosen: String? {
+        get { UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")?[languagesKey]
+                .flatMap { ($0 as? [String])?.first } }
+        set {
+            if let newValue {
+                UserDefaults.standard.set([newValue], forKey: languagesKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: languagesKey)
+            }
+        }
+    }
+
+    /// The language the app is showing now.
+    static var current: String { Bundle.main.preferredLocalizations.first ?? "it" }
+
+    /// "English", "Italiano": each language in its own words.
+    static func name(of code: String) -> String {
+        Locale(identifier: code).localizedString(forLanguageCode: code)?.capitalized(with: Locale(identifier: code)) ?? code
     }
 }
 
@@ -65,6 +97,11 @@ struct SettingsView: View {
     @AppStorage("exportNoteLayout") private var exportNoteLayout = NoteLayout.beside
 
     @State private var showsGuide = false
+    @State private var language = AppLanguage.chosen
+    @State private var languageChanged = false
+    @AppStorage(TranslationLanguages.sourceKey) private var sourceLanguage = LanguagePair.default.source
+    @AppStorage(TranslationLanguages.targetKey) private var targetLanguage = LanguagePair.default.target
+    @State private var translationLanguages: [String] = []
     @State private var confirmsDeleteWords = false
     @State private var backup = BackupService.shared
     /// What the folder being picked is for; kept after the picker closes, since its answer comes after.
@@ -85,7 +122,7 @@ struct SettingsView: View {
                     Picker(selection: $appearance) {
                         ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
                     } label: {
-                        SettingsRow("Aspetto", systemImage: "circle.lefthalf.filled", color: .indigo)
+                        SettingsRow(String(localized: "Aspetto"), systemImage: "circle.lefthalf.filled", color: .indigo)
                     }
                     .pickerStyle(.segmented)
                 } header: {
@@ -95,17 +132,58 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Picker(selection: $language) {
+                        Text("Sistema").tag(String?.none)
+                        ForEach(AppLanguage.available, id: \.self) { code in
+                            Text(AppLanguage.name(of: code)).tag(Optional(code))
+                        }
+                    } label: {
+                        SettingsRow(String(localized: "Lingua"), systemImage: "globe", color: .blue)
+                    }
+                    .onChange(of: language) { _, newValue in
+                        AppLanguage.chosen = newValue
+                        languageChanged = true
+                    }
+                } footer: {
+                    Text("«Sistema» segue la lingua dell'iPad. La nuova lingua si vede alla prossima apertura dell'app.")
+                }
+
+                Section {
+                    Picker(selection: $sourceLanguage) {
+                        languageOptions(including: sourceLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Lingua dei libri"), systemImage: "book.closed", color: .teal)
+                    }
+                    Picker(selection: $targetLanguage) {
+                        languageOptions(including: targetLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Traduci in"), systemImage: "character.bubble", color: .teal)
+                    }
+                    Button {
+                        (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Inverti le lingue"), systemImage: "arrow.left.arrow.right", color: .gray)
+                    }
+                    .foregroundStyle(.primary)
+                } header: {
+                    Text("Traduzione")
+                } footer: {
+                    Text("Traduce sull'iPad con i modelli di Apple: la prima volta che usi una lingua nuova, l'iPad chiede di scaricarla. Seguono queste lingue anche «Ascolta», le risposte dell'IA e la lettura del testo delle pagine non ancora riconosciute.")
+                }
+                .task { translationLanguages = await TranslationLanguages.supported() }
+
+                Section {
                     NavigationLink {
                         AISettingsForm()
                     } label: {
-                        SettingsRow("Intelligenza artificiale", systemImage: "sparkles", color: .purple,
+                        SettingsRow(String(localized: "Intelligenza artificiale"), systemImage: "sparkles", color: .purple,
                                     detail: AISettingsForm.summary)
                     }
                 }
 
                 Section {
                     Toggle(isOn: $showsContinueReading) {
-                        SettingsRow("«Continua a leggere» in alto", systemImage: "book", color: .accentColor)
+                        SettingsRow(String(localized: "«Continua a leggere» in alto"), systemImage: "book", color: .accentColor)
                     }
                 } header: {
                     Text("Libreria")
@@ -117,22 +195,22 @@ struct SettingsView: View {
                             Label(theme.label, systemImage: theme.systemImage).tag(theme)
                         }
                     } label: {
-                        SettingsRow("Tema dei libri nuovi", systemImage: "circle.lefthalf.filled", color: .gray)
+                        SettingsRow(String(localized: "Tema dei libri nuovi"), systemImage: "circle.lefthalf.filled", color: .gray)
                     }
                     Toggle(isOn: $showsProgressBar) {
-                        SettingsRow("Barra di avanzamento", systemImage: "chart.bar.fill", color: .accentColor)
+                        SettingsRow(String(localized: "Barra di avanzamento"), systemImage: "chart.bar.fill", color: .accentColor)
                     }
                     Toggle(isOn: $keepsScreenOn) {
-                        SettingsRow("Schermo sempre acceso", systemImage: "sun.max.fill", color: .yellow)
+                        SettingsRow(String(localized: "Schermo sempre acceso"), systemImage: "sun.max.fill", color: .yellow)
                     }
                     Toggle(isOn: $allowsFingerDrawing) {
-                        SettingsRow("Cerchia le parole col dito", systemImage: "hand.draw", color: .teal)
+                        SettingsRow(String(localized: "Cerchia le parole col dito"), systemImage: "hand.draw", color: .teal)
                     }
                     Toggle(isOn: $showsWordBoxes) {
-                        SettingsRow("Riquadri del testo riconosciuto", systemImage: "square.dashed", color: .gray)
+                        SettingsRow(String(localized: "Riquadri del testo riconosciuto"), systemImage: "square.dashed", color: .gray)
                     }
                     Toggle(isOn: $showsHints) {
-                        SettingsRow("Suggerimenti tenendo premuto", systemImage: "questionmark.bubble", color: .blue)
+                        SettingsRow(String(localized: "Suggerimenti tenendo premuto"), systemImage: "questionmark.bubble", color: .blue)
                     }
                 } header: {
                     Text("Lettura")
@@ -146,13 +224,13 @@ struct SettingsView: View {
                             Text(style.label).tag(style)
                         }
                     } label: {
-                        SettingsRow("Sfondo", systemImage: "squareshape.split.3x3", color: .orange)
+                        SettingsRow(String(localized: "Sfondo"), systemImage: "squareshape.split.3x3", color: .orange)
                     }
                     Toggle(isOn: $straightensShapes) {
-                        SettingsRow("Raddrizza le forme", systemImage: "square.on.circle", color: .orange)
+                        SettingsRow(String(localized: "Raddrizza le forme"), systemImage: "square.on.circle", color: .orange)
                     }
                     Toggle(isOn: $smoothsStrokes) {
-                        SettingsRow("Leviga i tratti", systemImage: "scribble", color: .orange)
+                        SettingsRow(String(localized: "Leviga i tratti"), systemImage: "scribble", color: .orange)
                     }
                     if smoothsStrokes {
                         Picker(selection: $smoothingStrength) {
@@ -160,7 +238,7 @@ struct SettingsView: View {
                                 Text("\(Int(points)) pt").tag(points)
                             }
                         } label: {
-                            SettingsRow("Intensità levigatura", systemImage: "dial.medium", color: .orange)
+                            SettingsRow(String(localized: "Intensità levigatura"), systemImage: "dial.medium", color: .orange)
                         }
                     }
                 } header: {
@@ -171,23 +249,23 @@ struct SettingsView: View {
 
                 Section {
                     Stepper(value: $timer.settings.focusMinutes, in: PomodoroSettings.focusRange, step: 5) {
-                        SettingsRow("Blocco di studio", systemImage: "timer", color: .red,
+                        SettingsRow(String(localized: "Blocco di studio"), systemImage: "timer", color: .red,
                                     detail: "\(timer.settings.focusMinutes) min")
                     }
                     Stepper(value: $timer.settings.shortBreakMinutes, in: PomodoroSettings.shortBreakRange) {
-                        SettingsRow("Pausa breve", systemImage: "cup.and.saucer", color: .green,
+                        SettingsRow(String(localized: "Pausa breve"), systemImage: "cup.and.saucer", color: .green,
                                     detail: "\(timer.settings.shortBreakMinutes) min")
                     }
                     Stepper(value: $timer.settings.longBreakMinutes, in: PomodoroSettings.longBreakRange, step: 5) {
-                        SettingsRow("Pausa lunga", systemImage: "bed.double", color: .green,
+                        SettingsRow(String(localized: "Pausa lunga"), systemImage: "bed.double", color: .green,
                                     detail: "\(timer.settings.longBreakMinutes) min")
                     }
                     Stepper(value: $timer.settings.blocksBeforeLongBreak, in: PomodoroSettings.blocksRange) {
-                        SettingsRow("Pausa lunga ogni", systemImage: "repeat", color: .green,
-                                    detail: "\(timer.settings.blocksBeforeLongBreak) blocchi")
+                        SettingsRow(String(localized: "Pausa lunga ogni"), systemImage: "repeat", color: .green,
+                                    detail: String(localized: "\(timer.settings.blocksBeforeLongBreak) blocchi"))
                     }
                     Stepper(value: $readingMinutes, in: 10...240, step: 10) {
-                        SettingsRow("Lettura a tempo, proposta", systemImage: "hourglass", color: .red,
+                        SettingsRow(String(localized: "Lettura a tempo, proposta"), systemImage: "hourglass", color: .red,
                                     detail: "\(readingMinutes) min")
                     }
                     Button("Ripristina 25 / 5") { timer.settings = PomodoroSettings() }
@@ -197,12 +275,12 @@ struct SettingsView: View {
 
                 Section {
                     Toggle(isOn: $joinsHighlights) {
-                        SettingsRow("Unisci i concetti con l'IA", systemImage: "sparkles", color: .purple)
+                        SettingsRow(String(localized: "Unisci i concetti con l'IA"), systemImage: "sparkles", color: .purple)
                     }
                     Button {
                         showsGuide = true
                     } label: {
-                        SettingsRow("Come studiare con la modalità studio", systemImage: "highlighter", color: .orange)
+                        SettingsRow(String(localized: "Come studiare con la modalità studio"), systemImage: "highlighter", color: .orange)
                     }
                     .foregroundStyle(.primary)
                 } header: {
@@ -213,14 +291,14 @@ struct SettingsView: View {
 
                 Section {
                     Toggle(isOn: $exportIncludesMarks) {
-                        SettingsRow("Includi i segni di studio", systemImage: "highlighter", color: .indigo)
+                        SettingsRow(String(localized: "Includi i segni di studio"), systemImage: "highlighter", color: .indigo)
                     }
                     Picker(selection: $exportNoteLayout) {
                         ForEach(NoteLayout.allCases, id: \.self) { layout in
                             Text(layout.label).tag(layout)
                         }
                     } label: {
-                        SettingsRow("Note del quaderno", systemImage: "rectangle.split.2x1", color: .indigo)
+                        SettingsRow(String(localized: "Note del quaderno"), systemImage: "rectangle.split.2x1", color: .indigo)
                     }
                 } header: {
                     Text("Esporta PDF")
@@ -231,19 +309,19 @@ struct SettingsView: View {
                         pickMode = .destination
                         picksFolder = true
                     } label: {
-                        SettingsRow("Cartella dei backup", systemImage: "folder", color: .blue,
-                                    detail: backup.folderName ?? "Scegli…")
+                        SettingsRow(String(localized: "Cartella dei backup"), systemImage: "folder", color: .blue,
+                                    detail: backup.folderName ?? String(localized: "Scegli…"))
                     }
                     .foregroundStyle(.primary)
                     Toggle(isOn: $backup.isAutomatic) {
-                        SettingsRow("Backup automatico ogni giorno", systemImage: "clock.arrow.circlepath", color: .blue)
+                        SettingsRow(String(localized: "Backup automatico ogni giorno"), systemImage: "clock.arrow.circlepath", color: .blue)
                     }
                     .disabled(!backup.hasFolder)
                     Button {
                         Task { await backup.backUp() }
                     } label: {
                         HStack {
-                            SettingsRow("Fai un backup adesso", systemImage: "externaldrive.badge.icloud", color: .blue)
+                            SettingsRow(String(localized: "Fai un backup adesso"), systemImage: "externaldrive.badge.icloud", color: .blue)
                             if backup.state == .running {
                                 Spacer()
                                 ProgressView()
@@ -256,7 +334,7 @@ struct SettingsView: View {
                         pickMode = .restore
                         picksFolder = true
                     } label: {
-                        SettingsRow("Ripristina da un backup…", systemImage: "arrow.counterclockwise", color: .gray)
+                        SettingsRow(String(localized: "Ripristina da un backup…"), systemImage: "arrow.counterclockwise", color: .gray)
                     }
                     .foregroundStyle(.primary)
                     .disabled(backup.state == .running)
@@ -276,7 +354,7 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         confirmsDeleteWords = true
                     } label: {
-                        SettingsRow("Cancella tutte le parole cercate", systemImage: "trash", color: .red,
+                        SettingsRow(String(localized: "Cancella tutte le parole cercate"), systemImage: "trash", color: .red,
                                     detail: "\(wordList.words.count)")
                     }
                     .disabled(wordList.words.isEmpty)
@@ -287,9 +365,16 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        GuideView()
+                    } label: {
+                        SettingsRow(String(localized: "Guida all'uso"), systemImage: "book.pages", color: .accentColor)
+                    }
                     LabeledContent("Versione", value: Self.version)
                 } header: {
                     Text("Informazioni")
+                } footer: {
+                    Text("Come funziona ogni parte dell'app, con tutti i gesti delle dita e della Pencil.")
                 }
             }
             .navigationTitle("Impostazioni")
@@ -314,7 +399,7 @@ struct SettingsView: View {
                     if BackupService.isBackup(url) {
                         restoring = url
                     } else {
-                        backupError = "Questa cartella non è un backup di PencilReader: scegli una cartella «PencilReader …»."
+                        backupError = String(localized: "Questa cartella non è un backup di PencilReader: scegli una cartella «PencilReader …».")
                     }
                 }
             }
@@ -340,6 +425,12 @@ struct SettingsView: View {
             } message: {
                 Text("Chiudi e riapri l'app per vedere i dati del backup.")
             }
+            .alert("Lingua cambiata", isPresented: $languageChanged) {
+                Button("Chiudi l'app") { exit(0) }
+                Button("Più tardi", role: .cancel) {}
+            } message: {
+                Text("Chiudi e riapri l'app per vederla nella nuova lingua.")
+            }
             .alert("Backup", isPresented: Binding(get: { backupError != nil }, set: { if !$0 { backupError = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -351,10 +442,19 @@ struct SettingsView: View {
         }
     }
 
+    /// The languages of the on-device translation, plus the chosen one while they load.
+    @ViewBuilder
+    private func languageOptions(including chosen: String) -> some View {
+        let codes = translationLanguages.contains(chosen) ? translationLanguages : [chosen] + translationLanguages
+        ForEach(codes, id: \.self) { code in
+            Text(TranslationLanguages.name(of: code)).tag(code)
+        }
+    }
+
     private var backupFooter: String {
-        let last = backup.lastBackup.map { "Ultimo backup: \($0.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "it_IT"))))." }
-            ?? "Nessun backup ancora."
-        return "\(last) Copia libri, note, segni, parole, statistiche e impostazioni (non le chiavi IA) in una cartella di File: scegline una in iCloud Drive per averla anche fuori dall'iPad. Restano gli ultimi \(BackupService.kept) backup."
+        let last = backup.lastBackup.map { date in String(localized: "Ultimo backup: \(date.formatted(date: .abbreviated, time: .shortened)).") }
+            ?? String(localized: "Nessun backup ancora.")
+        return String(localized: "\(last) Copia libri, note, segni, parole, statistiche e impostazioni (non le chiavi IA) in una cartella di File: scegline una in iCloud Drive per averla anche fuori dall'iPad. Restano gli ultimi \(BackupService.kept) backup.")
     }
 
     private static var version: String {

@@ -17,18 +17,18 @@ enum SummaryKind: String, CaseIterable, Identifiable {
         case .key: StudyColor.key.label
         case .formula: StudyColor.formula.label
         case .review: StudyColor.review.label
-        case .term: "Termini inglesi"
-        case .note: "Note a margine"
+        case .term: String(localized: "Termini da imparare")
+        case .note: String(localized: "Note a margine")
         }
     }
 
     var detail: String {
         switch self {
-        case .key: "Definizioni e idee principali"
-        case .formula: "Equazioni, valori, ipotesi e unità"
-        case .review: "Non chiaro: da rivedere o chiedere"
-        case .term: "Parole tecniche sottolineate"
-        case .note: "Domande e note scritte a penna"
+        case .key: String(localized: "Definizioni e idee principali")
+        case .formula: String(localized: "Equazioni, valori, ipotesi e unità")
+        case .review: String(localized: "Non chiaro: da rivedere o chiedere")
+        case .term: String(localized: "Parole tecniche sottolineate")
+        case .note: String(localized: "Domande e note scritte a penna")
         }
     }
 
@@ -388,12 +388,12 @@ struct MarkSummaryView: View {
     private func filterBar(kinds: [SummaryKind], byKind: [SummaryKind: [SummaryItem]]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                chip(.all, title: "Tutti", color: .accentColor, count: nil)
+                chip(.all, title: String(localized: "Tutti"), color: .accentColor, count: nil)
                 ForEach(kinds) { kind in
                     chip(.kind(kind), title: kind.label, color: kind.color, count: byKind[kind]?.count)
                 }
                 if !notedPages.isEmpty {
-                    chip(.notebook, title: "Quaderno", color: .orange, count: notedPages.count)
+                    chip(.notebook, title: String(localized: "Quaderno"), color: .orange, count: notedPages.count)
                 }
             }
         }
@@ -452,7 +452,7 @@ struct MarkSummaryView: View {
 
     private var notebookSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("Note del quaderno", detail: "Pagine con una nota scritta a fianco",
+            sectionHeader(String(localized: "Note del quaderno"), detail: String(localized: "Pagine con una nota scritta a fianco"),
                           systemImage: "square.and.pencil", color: .orange, count: notedPages.count)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 130, maximum: 170), spacing: 16)], spacing: 16) {
                 ForEach(notedPages, id: \.self) { page in
@@ -549,7 +549,7 @@ private struct SummaryGroupCard: View {
     private var kind: SummaryKind { entries[0].kind }
     private var pages: String {
         let first = entries[0].page + 1, last = entries.map(\.page).max()! + 1
-        return first == last ? "Pagina \(first)" : "Pagine \(first)–\(last)"
+        return first == last ? String(localized: "Pagina \(first)") : String(localized: "Pagine \(first)–\(last)")
     }
 
     var body: some View {
@@ -636,7 +636,7 @@ private struct CompactPanel: View {
             } label: {
                 HStack {
                     if running { ProgressView() }
-                    Text(running ? "Compatto…" : "Compatta \(last - first + 1) pagine")
+                    Text(running ? String(localized: "Compatto…") : String(localized: "Compatta \(last - first + 1) pagine"))
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -665,9 +665,9 @@ private struct CompactPanel: View {
             let count = try await HighlightGrouper.shared.compact(pages: first...last, of: bookID, info: pageInfo)
             failed = false
             outcome = count == 0
-                ? "Nessun concetto da unire nelle pagine \(first + 1)–\(last + 1)."
-                : count == 1 ? "1 concetto unito nelle pagine \(first + 1)–\(last + 1)."
-                : "\(count) concetti uniti nelle pagine \(first + 1)–\(last + 1)."
+                ? String(localized: "Nessun concetto da unire nelle pagine \(first + 1)–\(last + 1).")
+                : count == 1 ? String(localized: "1 concetto unito nelle pagine \(first + 1)–\(last + 1).")
+                : String(localized: "\(count) concetti uniti nelle pagine \(first + 1)–\(last + 1).")
             done()
         } catch {
             failed = true

@@ -75,9 +75,9 @@ struct ReviewView: View {
     /// The three answers, once the card is turned, each with when the word comes back.
     private func grades(for word: SavedWord) -> some View {
         HStack(spacing: 16) {
-            gradeButton("Non la sapevo", .again, color: .red, word: word)
-            gradeButton("Difficile", .hard, color: .orange, word: word)
-            gradeButton("La sapevo", .good, color: .green, word: word)
+            gradeButton(String(localized: "Non la sapevo"), .again, color: .red, word: word)
+            gradeButton(String(localized: "Difficile"), .hard, color: .orange, word: word)
+            gradeButton(String(localized: "La sapevo"), .good, color: .green, word: word)
         }
         .opacity(turned ? 1 : 0)
         .disabled(!turned)
@@ -110,20 +110,20 @@ struct ReviewView: View {
     private func comesBack(_ word: SavedWord, after grade: ReviewGrade) -> String {
         let state = reviews.states[word.id] ?? .new(on: .now)
         switch state.answered(grade, on: .now).intervalDays {
-        case 0: return "di nuovo ora"
-        case 1: return "domani"
-        case let days: return "tra \(days) giorni"
+        case 0: return String(localized: "di nuovo ora")
+        case 1: return String(localized: "domani")
+        case let days: return String(localized: "tra \(days) giorni")
         }
     }
 
     private var nextReviewText: String {
         let next = words.compactMap { reviews.states[$0.id]?.due }.min()
-        guard let next else { return "Le parole che cerchi con la Pencil compaiono qui da ripassare." }
-        let day = next.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "it_IT")))
-        return "Le prossime parole tornano \(day)."
+        guard let next else { return String(localized: "Le parole che cerchi con la Pencil compaiono qui da ripassare.") }
+        let day = next.formatted(.dateTime.weekday(.wide).day().month(.wide))
+        return String(localized: "Le prossime parole tornano \(day).")
     }
 
-    private func cards(_ n: Int) -> String { n == 1 ? "1 parola" : "\(n) parole" }
+    private func cards(_ n: Int) -> String { n == 1 ? String(localized: "1 parola") : String(localized: "\(n) parole") }
 }
 
 /// One card: the English side, or the Italian side once turned.
