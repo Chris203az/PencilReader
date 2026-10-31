@@ -39,6 +39,8 @@ struct SettingsView: View {
     @AppStorage("exportNoteLayout") private var exportNoteLayout = NoteLayout.beside
 
     @State private var showsGuide = false
+    @State private var confirmsDeleteWords = false
+    @Environment(WordList.self) private var wordList
 
     var body: some View {
         @Bindable var timer = studyTimer
@@ -177,6 +179,20 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button(role: .destructive) {
+                        confirmsDeleteWords = true
+                    } label: {
+                        SettingsRow("Cancella tutte le parole cercate", systemImage: "trash", color: .red,
+                                    detail: "\(wordList.words.count)")
+                    }
+                    .disabled(wordList.words.isEmpty)
+                } header: {
+                    Text("Dati")
+                } footer: {
+                    Text("Toglie le parole cercate di tutti i libri, con il loro ripasso. I libri, le note e i segni restano.")
+                }
+
+                Section {
                     LabeledContent("Versione", value: Self.version)
                 } header: {
                     Text("Informazioni")
@@ -188,6 +204,12 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fine") { dismiss() }
                 }
+            }
+            .confirmationDialog("Cancellare tutte le \(wordList.words.count) parole cercate?",
+                                isPresented: $confirmsDeleteWords, titleVisibility: .visible) {
+                Button("Cancella tutte", role: .destructive) { wordList.delete(Set(wordList.words.map(\.id))) }
+            } message: {
+                Text("Non si può annullare.")
             }
             .sheet(isPresented: $showsGuide) {
                 StudyGuideView().presentationSizing(.form)

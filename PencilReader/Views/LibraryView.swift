@@ -107,6 +107,17 @@ struct LibraryView: View {
         .onAppear { library.reload() }
         .onChange(of: scenePhase) { _, phase in if phase == .active { library.reload() } }
         .toolbar {
+            // Always first, top left: the statistics are looked at every day.
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showStats = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chart.bar.xaxis")
+                        Text("Statistiche")
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 ReviewButton(count: reviews.dueCount(in: wordList.words), showsTitle: true) { showReview = true }
             }
@@ -114,7 +125,6 @@ struct LibraryView: View {
                 Menu {
                     Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
                     Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
-                    Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
                 } label: {
                     // Written out: a bare symbol would not say what is inside.
                     HStack(spacing: 6) {

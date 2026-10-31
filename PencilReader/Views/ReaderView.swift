@@ -74,7 +74,15 @@ struct ReaderView: View {
                         }
                     }
                     .animation(.snappy, value: showNotebook)
-                    .overlay(alignment: .bottomTrailing) { notebookButton }
+                    .overlay(alignment: .bottomTrailing) {
+                        VStack(spacing: 14) {
+                            clipButton
+                            notebookButton
+                        }
+                        .padding(20)
+                        // Above the notebook's tool bar when that sits at the bottom.
+                        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+                    }
                 }
                 .background(PopGestureDisabler())
                 .toolbar { toolbar(model) }
@@ -265,9 +273,22 @@ struct ReaderView: View {
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
         }
         .accessibilityLabel(showNotebook ? "Chiudi quaderno" : "Apri quaderno")
-        .padding(20)
-        // Above the notebook's tool bar when that sits at the bottom.
-        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+    }
+
+    /// Copies a part of the screen, page and notebook alike, cut out with the Pencil.
+    /// Big and always there, above the notebook button: it is used all the time.
+    private var clipButton: some View {
+        HintButton(hint: "Ritaglia una parte dello schermo con la Pencil e la copia, pagina e quaderno insieme") {
+            ScreenClipper.start()
+        } label: {
+            Image(systemName: "scissors")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.accentColor.gradient, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+        }
+        .accessibilityLabel("Ritaglia schermo")
     }
 
     /// Recognizes the whole book in the background; shows the progress while it runs.
@@ -415,8 +436,6 @@ struct ReaderView: View {
                     Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
                 }
                 Section {
-                    // Copies a part of the screen, page and notebook alike, cut out with the Pencil.
-                    Button("Ritaglia schermo", systemImage: "scissors") { ScreenClipper.start() }
                     themeMenu
                     Button("Esporta PDF", systemImage: "square.and.arrow.up") {
                         // So what was just written is in the PDF.
