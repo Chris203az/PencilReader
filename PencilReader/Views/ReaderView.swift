@@ -21,7 +21,8 @@ struct ReaderView: View {
     @State private var showWords = false
     @State private var showSettings = false
     @State private var renaming = false
-    @State private var showOutline = false
+    /// The chapters column on the left; stays open from one book to the next.
+    @AppStorage("reader.showsOutline") private var showOutline = false
     @State private var newTitle = ""
     @AppStorage(AppSettings.progressBarKey) private var showsProgressBar = true
     @AppStorage(AppSettings.keepsScreenOnKey) private var keepsScreenOn = false
@@ -55,39 +56,51 @@ struct ReaderView: View {
     var body: some View {
         Group {
             if let model {
-                GeometryReader { geo in
-                    // Upright, the notebook goes below the page: beside it, both would be too narrow.
-                    let stacked = geo.size.height > geo.size.width
-                    let length = stacked ? geo.size.height : geo.size.width
-                    let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
-                    layout {
-                        PageView(model: model, study: study, theme: theme.resolved(for: colorScheme),
-                                 onExit: { dismiss() })
-                            .overlay(alignment: .bottom) {
-                                if showsProgressBar { ReadingProgressBar(page: model.pageIndex, pageCount: model.pageCount) }
+                HStack(spacing: 0) {
+                    if showOutline && !model.outline.isEmpty {
+                        HStack(spacing: 0) {
+                            OutlineView(entries: model.outline, currentPage: model.pageIndex, select: model.showPage) {
+                                showOutline = false
                             }
-                            .overlay(alignment: .bottomLeading) { backButton(model) }
-                            .frame(width: stacked ? nil : pageLength(in: length),
-                                   height: stacked ? pageLength(in: length) : nil)
-                        if showNotebook, let notebook {
-                            NotebookDivider(split: $split, available: length - NotebookDivider.width, stacked: stacked)
-                                // Drawn over the notebook while it is dragged across it.
-                                .zIndex(1)
-                            NotebookPane(notebook: notebook)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            Divider()
                         }
+                        .transition(.move(edge: .leading))
                     }
-                    .animation(.snappy, value: showNotebook)
-                    .overlay(alignment: .bottomTrailing) {
-                        VStack(spacing: 14) {
-                            clipButton
-                            notebookButton
+                    GeometryReader { geo in
+                        // Upright, the notebook goes below the page: beside it, both would be too narrow.
+                        let stacked = geo.size.height > geo.size.width
+                        let length = stacked ? geo.size.height : geo.size.width
+                        let layout = stacked ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
+                        layout {
+                            PageView(model: model, study: study, theme: theme.resolved(for: colorScheme),
+                                     onExit: { dismiss() })
+                                .overlay(alignment: .bottom) {
+                                    if showsProgressBar { ReadingProgressBar(page: model.pageIndex, pageCount: model.pageCount) }
+                                }
+                                .overlay(alignment: .bottomLeading) { backButton(model) }
+                                .frame(width: stacked ? nil : pageLength(in: length),
+                                       height: stacked ? pageLength(in: length) : nil)
+                            if showNotebook, let notebook {
+                                NotebookDivider(split: $split, available: length - NotebookDivider.width, stacked: stacked)
+                                    // Drawn over the notebook while it is dragged across it.
+                                    .zIndex(1)
+                                NotebookPane(notebook: notebook)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            }
                         }
-                        .padding(20)
-                        // Above the notebook's tool bar when that sits at the bottom.
-                        .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+                        .animation(.snappy, value: showNotebook)
+                        .overlay(alignment: .bottomTrailing) {
+                            VStack(spacing: 14) {
+                                clipButton
+                                notebookButton
+                            }
+                            .padding(20)
+                            // Above the notebook's tool bar when that sits at the bottom.
+                            .padding(.bottom, showNotebook && notebook?.tools.layout.position == .bottom ? 44 : 0)
+                        }
                     }
                 }
+                .animation(.snappy, value: showOutline)
                 .background(PopGestureDisabler())
                 .toolbar { toolbar(model) }
                 .translationTask(model.translationConfig) { session in
@@ -119,10 +132,6 @@ struct ReaderView: View {
                                      select: model.showPage)
                             .presentationSizing(.page)
                     }
-                }
-                .sheet(isPresented: $showOutline) {
-                    OutlineView(entries: model.outline, currentPage: model.pageIndex, select: model.showPage)
-                        .presentationSizing(.form)
                 }
                 .sheet(isPresented: $showBookmarks) {
                     if let bookmarks {
@@ -204,6 +213,14 @@ struct ReaderView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button(library.currentCollection.name, systemImage: "chevron.left") { dismiss() }
+            }
+            // Opens and closes the chapters column, on the side where it appears.
+            if model?.outline.isEmpty == false {
+                ToolbarItem(placement: .topBarLeading) {
+                    HintButton("Indice", systemImage: "sidebar.left",
+                               hint: "Apre e chiude l'indice dei capitoli a sinistra") { showOutline.toggle() }
+                        .tint(showOutline ? .accentColor : nil)
+                }
             }
             ToolbarItem(placement: .topBarLeading) {
                 StudyTimerButton(bookID: document.id, onFix: fixReading) { recap in
@@ -482,11 +499,6 @@ struct ReaderView: View {
                 // The page open now joins the summary's groups as soon as the AI answers.
                 model.groupHighlights(of: model.pageIndex)
                 showSummary = true
-            }
-            if !model.outline.isEmpty {
-                HintButton("Indice", systemImage: "list.bullet.indent", hint: "I capitoli del libro: tocca per andarci") {
-                    showOutline = true
-                }
             }
             HintButton("Cerca nel libro", systemImage: "magnifyingglass", hint: "Cerca una parola in tutto il libro") {
                 if search == nil { search = BookSearch(document: document, library: library) }
