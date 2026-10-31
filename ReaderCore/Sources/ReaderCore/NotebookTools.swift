@@ -13,11 +13,11 @@ public enum DrawingTool: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .pen: "Penna"
-        case .pencil: "Matita"
-        case .marker: "Evidenziatore"
-        case .eraser: "Gomma"
-        case .lasso: "Lasso"
+        case .pen: String(localized: "Penna")
+        case .pencil: String(localized: "Matita")
+        case .marker: String(localized: "Evidenziatore")
+        case .eraser: String(localized: "Gomma")
+        case .lasso: String(localized: "Lasso")
         }
     }
 
@@ -163,18 +163,18 @@ public enum NotebookToolbarItem: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .pen: "Penna"
-        case .pencil: "Matita"
-        case .marker: "Evidenziatore"
-        case .eraser: "Gomma"
-        case .lasso: "Lasso"
-        case .ruler: "Righello"
-        case .colors: "Colori"
-        case .width: "Spessore"
-        case .undo: "Annulla"
-        case .redo: "Ripristina"
-        case .shapes: "Forme automatiche"
-        case .paper: "Sfondo"
+        case .pen: String(localized: "Penna")
+        case .pencil: String(localized: "Matita")
+        case .marker: String(localized: "Evidenziatore")
+        case .eraser: String(localized: "Gomma")
+        case .lasso: String(localized: "Lasso")
+        case .ruler: String(localized: "Righello")
+        case .colors: String(localized: "Colori")
+        case .width: String(localized: "Spessore")
+        case .undo: String(localized: "action.undo", defaultValue: "Annulla")
+        case .redo: String(localized: "Ripristina")
+        case .shapes: String(localized: "Forme automatiche")
+        case .paper: String(localized: "Sfondo")
         }
     }
 }
@@ -185,7 +185,7 @@ public struct NotebookToolbarLayout: Codable, Equatable, Sendable {
         case top
         case bottom
 
-        public var label: String { self == .top ? "In alto" : "In basso" }
+        public var label: String { self == .top ? String(localized: "In alto") : String(localized: "In basso") }
     }
 
     public struct Entry: Codable, Equatable, Hashable, Sendable {

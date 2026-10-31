@@ -31,8 +31,8 @@ struct WordsView: View {
     }
 
     private var deleteAllTitle: String {
-        if !filter.trimmingCharacters(in: .whitespaces).isEmpty { return "Elimina le parole trovate" }
-        return currentDocument != nil && onlyThisBook ? "Elimina tutte le parole di questo libro" : "Elimina tutte le parole"
+        if !filter.trimmingCharacters(in: .whitespaces).isEmpty { return String(localized: "Elimina le parole trovate") }
+        return currentDocument != nil && onlyThisBook ? String(localized: "Elimina tutte le parole di questo libro") : String(localized: "Elimina tutte le parole")
     }
 
     var body: some View {
@@ -76,7 +76,7 @@ struct WordsView: View {
                 }
             }
             .confirmationDialog(deleteAllTitle + "?", isPresented: $confirmsDeleteAll, titleVisibility: .visible) {
-                Button("Elimina \(shown.count) \(shown.count == 1 ? "parola" : "parole")", role: .destructive) {
+                Button(shown.count == 1 ? "Elimina 1 parola" : "Elimina \(shown.count) parole", role: .destructive) {
                     wordList.delete(Set(shown.map(\.id)))
                 }
             } message: {
@@ -144,7 +144,7 @@ private struct WordRow: View {
                     .foregroundStyle(Color(uiColor: .secondaryLabel))
                     .lineLimit(2)
             }
-            Text(showsBook ? "\(word.documentTitle) · pagina \(word.page + 1)" : "Pagina \(word.page + 1)")
+            Text(showsBook ? String(localized: "\(word.documentTitle) · pagina \(word.page + 1)") : String(localized: "Pagina \(word.page + 1)"))
                 .font(.caption)
                 .foregroundStyle(Color(uiColor: .tertiaryLabel))
         }
@@ -157,13 +157,12 @@ struct WordsExport: Transferable {
     let words: [SavedWord]
 
     var markdown: String {
-        WordExport.markdown(words, exportedOn: Date.now.formatted(.dateTime.day().month(.wide).year()
-            .locale(Locale(identifier: "it_IT"))))
+        WordExport.markdown(words, exportedOn: Date.now.formatted(.dateTime.day().month(.wide).year()))
     }
 
     static var transferRepresentation: some TransferRepresentation {
         FileRepresentation(exportedContentType: .plainText) { export in
-            let url = URL.temporaryDirectory.appending(path: "Parole cercate.txt")
+            let url = URL.temporaryDirectory.appending(path: String(localized: "Parole cercate.txt"))
             try export.markdown.write(to: url, atomically: true, encoding: .utf8)
             return SentTransferredFile(url)
         }

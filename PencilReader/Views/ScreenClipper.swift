@@ -66,7 +66,7 @@ private final class ScreenClipView: UIView {
     private var fingerStart: (location: CGPoint, time: TimeInterval)?
     private var finished = false
 
-    private static let hintText = "Disegna con la Pencil intorno alla parte da copiare"
+    private static let hintText = String(localized: "Disegna con la Pencil intorno alla parte da copiare")
 
     init(snapshot: UIImage) {
         self.snapshot = snapshot
@@ -110,7 +110,7 @@ private final class ScreenClipView: UIView {
         hintLabel.numberOfLines = 2
 
         var cancel = UIButton.Configuration.borderedTinted()
-        cancel.title = "Annulla"
+        cancel.title = String(localized: "Annulla")
         cancel.cornerStyle = .capsule
         let cancelButton = UIButton(configuration: cancel, primaryAction: UIAction { [weak self] _ in
             self?.dismiss()
@@ -234,12 +234,12 @@ private final class ScreenClipView: UIView {
             // A slip or a too small loop: stay, and say how to do it.
             points = []
             updateOutline()
-            hintLabel.text = "Disegna un contorno più grande, oppure Annulla"
+            hintLabel.text = String(localized: "Disegna un contorno più grande, oppure Annulla")
             return
         }
         let image = ScreenClipper.image(of: clip, from: snapshot)
         guard ScreenClipper.copy(image) else {
-            hintLabel.text = "Non sono riuscito a copiare, riprova"
+            hintLabel.text = String(localized: "Non sono riuscito a copiare, riprova")
             points = []
             updateOutline()
             return
@@ -305,7 +305,7 @@ private final class ScreenClipView: UIView {
         thumb.contentMode = .scaleAspectFit
         thumb.frame = CGRect(origin: CGPoint(x: 10, y: 10), size: thumbSize)
         let label = UILabel()
-        label.text = "Copiato negli appunti"
+        label.text = String(localized: "Copiato negli appunti")
         label.font = .preferredFont(forTextStyle: .headline)
         label.sizeToFit()
         label.frame.origin = CGPoint(x: thumb.frame.maxX + 12, y: (side + 20 - label.frame.height) / 2)

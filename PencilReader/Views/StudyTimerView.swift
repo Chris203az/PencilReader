@@ -317,26 +317,26 @@ private struct StudyTimerPanel: View {
 
     private func sessionEndText(_ end: Date, now: Date) -> String {
         if timer.isRunning {
-            return "Finisce verso le \(end.formatted(date: .omitted, time: .shortened))"
+            return String(localized: "Finisce verso le \(end.formatted(date: .omitted, time: .shortened))")
         }
         let minutes = Int((end.timeIntervalSince(now) / 60).rounded(.up))
-        return "Mancano \(ReadingTimePicker.duration(minutes)), timer fermo"
+        return String(localized: "Mancano \(ReadingTimePicker.duration(minutes)), timer fermo")
     }
 
     private var subtitle: String {
         let settings = timer.activeSettings
         let next = timer.timer.isLastBlock
-            ? "ultimo blocco"
-            : "poi \(StudyTimer.name(of: timer.timer.nextPhase(settings: timer.settings)).lowercased())"
+            ? String(localized: "ultimo blocco")
+            : String(localized: "poi \(StudyTimer.name(of: timer.timer.nextPhase(settings: timer.settings)).lowercased())")
         switch timer.phase {
         case .focus:
             if let session = timer.session {
-                return "Blocco \(session.blocksDone + 1) di \(session.plan.blocks) · \(next)"
+                return String(localized: "Blocco \(session.blocksDone + 1) di \(session.plan.blocks) · \(next)")
             }
             let blocks = settings.blocksBeforeLongBreak
-            return "Blocco \(min(timer.blockNumber, blocks)) di \(blocks) · \(next)"
+            return String(localized: "Blocco \(min(timer.blockNumber, blocks)) di \(blocks) · \(next)")
         case .shortBreak, .longBreak:
-            return "Alzati, bevi qualcosa, guarda lontano dallo schermo"
+            return String(localized: "Alzati, bevi qualcosa, guarda lontano dallo schermo")
         }
     }
 }

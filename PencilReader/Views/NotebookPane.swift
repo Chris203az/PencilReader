@@ -497,10 +497,10 @@ final class NotebookCanvasView: PKCanvasView {
         guard let undoManager else { return }
         if swipe.direction == .right, undoManager.canUndo {
             undoManager.undo()
-            onSwipeAction?("Annulla")
+            onSwipeAction?(String(localized: "action.undo", defaultValue: "Annulla"))
         } else if swipe.direction == .left, undoManager.canRedo {
             undoManager.redo()
-            onSwipeAction?("Ripristina")
+            onSwipeAction?(String(localized: "Ripristina"))
         }
     }
 

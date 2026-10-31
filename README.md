@@ -21,7 +21,7 @@ One iPad app that does all of it on device, for free, with no account.
 
 Reading an engineering handbook in a second language means stopping every few lines: open a translator, copy the sentence, lose the thread. PencilReader removes those steps. **Circle the word with the Pencil and the translation appears right there, inside its sentence.** Around it sit the tools for real studying: highlighters with a fixed meaning, a notebook beside the page, spaced-repetition review and a study timer.
 
-> The app's interface is in Italian: it translates English texts into Italian.
+> The interface is in Italian or English (Settings › Language, or the iPad language): it translates English texts into Italian.
 
 ## ✨ At a glance
 
@@ -92,6 +92,7 @@ Reading an engineering handbook in a second language means stopping every few li
 
 - **One screen** for everything: AI, library, reading, notebook, timer, study, export, backup and data, with switches for every on/off option.
 - **App appearance**: System, Light or Dark.
+- **Language** of the interface: System, Italiano or English. The change applies when the app is reopened.
 - **Keep the screen on** while reading, hints, theme for new books, circling with a finger.
 - **Backup** to a folder of your choice, iCloud Drive included: automatic once a day, on demand, or restore. It copies books, words, statistics, notebook notes, study marks, bookmarks, AI concepts and settings; the last 5 are kept.
 - **Export to PDF** the annotated book, with study marks and notebook notes side by side or on pages of their own.

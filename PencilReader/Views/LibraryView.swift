@@ -166,7 +166,7 @@ struct LibraryView: View {
         }
         .fullScreenCover(isPresented: $showScanner) {
             DocumentScannerView { pages in
-                Task { await importImages(pages, title: "Scansione \(Date.now.formatted(date: .abbreviated, time: .shortened))") }
+                Task { await importImages(pages, title: String(localized: "Scansione \(Date.now.formatted(date: .abbreviated, time: .shortened))")) }
             }
             .ignoresSafeArea()
         }
@@ -304,19 +304,19 @@ struct LibraryView: View {
 
     private func recognitionStatus(of document: LibraryDocument) -> String? {
         if let progress = recognizer.progress(of: document) {
-            return "Riconoscimento \(progress.done)/\(progress.total)"
+            return String(localized: "Riconoscimento \(progress.done)/\(progress.total)")
         }
-        return recognizer.isQueued(document) ? "In coda per il riconoscimento" : nil
+        return recognizer.isQueued(document) ? String(localized: "In coda per il riconoscimento") : nil
     }
 
     private var collectionEditTitle: String {
-        if case .rename = collectionEdit { return "Rinomina libreria" }
-        return "Nuova libreria"
+        if case .rename = collectionEdit { return String(localized: "Rinomina libreria") }
+        return String(localized: "Nuova libreria")
     }
 
     private var collectionEditButton: String {
-        if case .rename = collectionEdit { return "Salva" }
-        return "Crea"
+        if case .rename = collectionEdit { return String(localized: "Salva") }
+        return String(localized: "Crea")
     }
 
     private func saveCollectionEdit() {
@@ -344,7 +344,7 @@ struct LibraryView: View {
         do {
             open(try library.importPDF(from: url))
         } catch {
-            alertMessage = "Impossibile importare il PDF: \(error.localizedDescription)"
+            alertMessage = String(localized: "Impossibile importare il PDF: \(error.localizedDescription)")
         }
     }
 
@@ -360,20 +360,20 @@ struct LibraryView: View {
             }.value
             images.append(page)
         }
-        await importImages(images, title: images.count == 1 ? "Foto" : "\(images.count) foto")
+        await importImages(images, title: images.count == 1 ? String(localized: "Foto") : String(localized: "\(images.count) foto"))
     }
 
     private func importImages(_ images: [UIImage], title: String) async {
         isImporting = true
         defer { isImporting = false }
         guard !images.isEmpty else {
-            alertMessage = "Nessuna pagina importata."
+            alertMessage = String(localized: "Nessuna pagina importata.")
             return
         }
         do {
             open(try await library.importImages(images, title: title))
         } catch {
-            alertMessage = "Impossibile salvare le pagine: \(error.localizedDescription)"
+            alertMessage = String(localized: "Impossibile salvare le pagine: \(error.localizedDescription)")
         }
     }
 }
@@ -454,8 +454,8 @@ private struct ContinueReadingCard: View {
                     Text(document.displayTitle)
                         .font(.title2.weight(.bold))
                         .lineLimit(2)
-                    Text("Pagina \(document.lastPage + 1) di \(document.pageCount)"
-                         + (readingTime >= 60 ? " · \(ReadingLog.duration(readingTime)) di lettura" : ""))
+                    Text(String(localized: "Pagina \(document.lastPage + 1) di \(document.pageCount)")
+                         + (readingTime >= 60 ? " · " + String(localized: "\(ReadingLog.duration(readingTime)) di lettura") : ""))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     ProgressView(value: Double(document.lastPage + 1), total: Double(max(document.pageCount, 1)))

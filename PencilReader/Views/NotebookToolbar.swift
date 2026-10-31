@@ -170,7 +170,7 @@ struct NotebookToolbar: View {
         case .eraser: EraserButton(tools: tools)
         case .lasso: toolButton(.lasso)
         case .ruler:
-            barButton("Righello", symbol: "ruler", isActive: tools.isRulerActive) { tools.isRulerActive.toggle() }
+            barButton(String(localized: "Righello"), symbol: "ruler", isActive: tools.isRulerActive) { tools.isRulerActive.toggle() }
         case .colors:
             HStack(spacing: 6) {
                 ForEach(tools.state.palette.indices, id: \.self) { index in
@@ -181,11 +181,11 @@ struct NotebookToolbar: View {
         case .width:
             WidthButtons(tools: tools)
         case .undo:
-            barButton("Annulla", symbol: "arrow.uturn.backward") { notebook.undo() }
+            barButton(String(localized: "action.undo", defaultValue: "Annulla"), symbol: "arrow.uturn.backward") { notebook.undo() }
         case .redo:
-            barButton("Ripristina", symbol: "arrow.uturn.forward") { notebook.redo() }
+            barButton(String(localized: "Ripristina"), symbol: "arrow.uturn.forward") { notebook.redo() }
         case .shapes:
-            barButton("Forme automatiche", symbol: "square.on.circle", isActive: notebook.straightensShapes) {
+            barButton(String(localized: "Forme automatiche"), symbol: "square.on.circle", isActive: notebook.straightensShapes) {
                 notebook.straightensShapes.toggle()
             }
         case .paper:
@@ -281,7 +281,7 @@ private struct EraserSettings: View {
             }
             .frame(height: previewLimit)
             HStack(spacing: 8) {
-                ForEach(Array(zip(["Piccola", "Media", "Grande"], tools.eraserPresets)), id: \.0) { name, width in
+                ForEach(Array(zip([String(localized: "Piccola"), String(localized: "Media"), String(localized: "Grande")], tools.eraserPresets)), id: \.0) { name, width in
                     Button {
                         tools.setEraserWidth(width)
                     } label: {
@@ -294,7 +294,7 @@ private struct EraserSettings: View {
             }
             Slider(value: Binding(get: { tools.eraserWidth }, set: { tools.setEraserWidth($0) }),
                    in: tools.eraserRange)
-            Text("Grandezza " + tools.eraserWidth.formatted(.number.precision(.fractionLength(1))) + " pt")
+            Text(String(localized: "Grandezza ") + tools.eraserWidth.formatted(.number.precision(.fractionLength(1))) + " pt")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
@@ -382,7 +382,7 @@ private struct WidthButtons: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isEraser ? ["Gomma piccola", "Gomma media", "Gomma grande"][step] : "Spessore \(step + 1)")
+                .accessibilityLabel(isEraser ? [String(localized: "Gomma piccola"), String(localized: "Gomma media"), String(localized: "Gomma grande")][step] : String(localized: "Spessore \(step + 1)"))
             }
             Button {
                 showsSlider = true

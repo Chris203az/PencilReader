@@ -53,8 +53,8 @@ public enum WordExport {
     /// Plain Markdown, readable as is and easy to paste into an AI chat:
     /// one section per book, most recently read first.
     public static func markdown(_ words: [SavedWord], exportedOn date: String) -> String {
-        var out = "# Parole cercate in PencilReader\n\n"
-        out += "Esportate il \(date) · \(count(words.count))\n"
+        var out = String(localized: "# Parole cercate in PencilReader\n\n")
+        out += String(localized: "Esportate il \(date) · \(count(words.count))\n")
         let books = Dictionary(grouping: words, by: \.documentID)
             .values
             .map { $0.sorted { $0.lastLookedUp > $1.lastLookedUp } }
@@ -63,7 +63,7 @@ public enum WordExport {
             out += "\n## \(book[0].documentTitle) (\(count(book.count)))\n\n"
             for word in book {
                 out += "- **\(word.term)** → \(word.translation) · p. \(word.page + 1)"
-                if word.lookups > 1 { out += " · cercata \(word.lookups) volte" }
+                if word.lookups > 1 { out += " · " + String(localized: "cercata \(word.lookups) volte") }
                 out += "\n"
                 if let sentence = word.sentence { out += "  - EN: \(sentence)\n" }
                 if let translated = word.sentenceTranslation { out += "  - IT: \(translated)\n" }
@@ -72,5 +72,5 @@ public enum WordExport {
         return out
     }
 
-    private static func count(_ n: Int) -> String { n == 1 ? "1 parola" : "\(n) parole" }
+    private static func count(_ n: Int) -> String { n == 1 ? String(localized: "1 parola") : String(localized: "\(n) parole") }
 }

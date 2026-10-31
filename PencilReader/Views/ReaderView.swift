@@ -304,7 +304,7 @@ struct ReaderView: View {
 
     /// Opens and closes the notebook beside the page.
     private var notebookButton: some View {
-        HintButton(hint: "Apre il quaderno accanto alla pagina, per prendere appunti con la Pencil") {
+        HintButton(hint: String(localized: "Apre il quaderno accanto alla pagina, per prendere appunti con la Pencil")) {
             // Opening the notebook on a page is asking for its note.
             if !showNotebook { notebook?.startNote() }
             showNotebook.toggle()
@@ -320,7 +320,7 @@ struct ReaderView: View {
 
     /// A tab half way down the left edge: opens the chapters column, and closes it from its edge.
     private var outlineTab: some View {
-        HintButton(hint: "Apre e chiude l'indice dei capitoli") {
+        HintButton(hint: String(localized: "Apre e chiude l'indice dei capitoli")) {
             showOutline.toggle()
         } label: {
             VStack(spacing: 6) {
@@ -372,7 +372,7 @@ struct ReaderView: View {
     /// Copies a part of the screen, page and notebook alike, cut out with the Pencil.
     /// Big and always there, above the notebook button: it is used all the time.
     private var clipButton: some View {
-        HintButton(hint: "Ritaglia una parte dello schermo con la Pencil e la copia, pagina e quaderno insieme") {
+        HintButton(hint: String(localized: "Ritaglia una parte dello schermo con la Pencil e la copia, pagina e quaderno insieme")) {
             ScreenClipper.start()
         } label: {
             Image(systemName: "scissors")
@@ -388,7 +388,7 @@ struct ReaderView: View {
     /// Recognizes the whole book in the background; shows the progress while it runs.
     @ViewBuilder private func recognitionButton(_ document: LibraryDocument) -> some View {
         if let progress = recognizer.progress(of: document) {
-            HintButton(hint: "Sto leggendo il testo di tutte le pagine: tocca per fermare") {
+            HintButton(hint: String(localized: "Sto leggendo il testo di tutte le pagine: tocca per fermare")) {
                 recognizer.stop(document)
             } label: {
                 Label("Testo \(progress.done)/\(progress.total)", systemImage: "stop.circle")
@@ -396,12 +396,12 @@ struct ReaderView: View {
                     .monospacedDigit()
             }
         } else if recognizer.isQueued(document) {
-            HintButton("In coda", systemImage: "clock",
-                       hint: "In attesa di leggere il testo del libro: tocca per annullare") { recognizer.stop(document) }
+            HintButton(String(localized: "In coda"), systemImage: "clock",
+                       hint: String(localized: "In attesa di leggere il testo del libro: tocca per annullare")) { recognizer.stop(document) }
                 .labelStyle(.titleAndIcon)
         } else if library.recognizedPageCount(of: document) < document.pageCount {
-            HintButton("Riconosci tutto il libro", systemImage: "text.viewfinder",
-                       hint: "Legge il testo di tutte le pagine in sottofondo, così ricerca e traduzione sono subito pronte") {
+            HintButton(String(localized: "Riconosci tutto il libro"), systemImage: "text.viewfinder",
+                       hint: String(localized: "Legge il testo di tutte le pagine in sottofondo, così ricerca e traduzione sono subito pronte")) {
                 recognizer.start(document)
             }
         }
@@ -416,7 +416,7 @@ struct ReaderView: View {
         let page = model.pageIndex
         let current = bookmarks.list.bookmark(at: page)
         Menu {
-            Button(current == nil ? "Aggiungi con un nome…" : "Rinomina…", systemImage: "pencil") {
+            Button(current == nil ? String(localized: "Aggiungi con un nome…") : String(localized: "Rinomina…"), systemImage: "pencil") {
                 namingBookmark = current ?? Bookmark(page: page, created: .now)
             }
             if current != nil {
@@ -450,13 +450,13 @@ struct ReaderView: View {
             study.toggle()
         }
         if study.isActive {
-            HintButton("Esci dalla modalità studio", systemImage: "highlighter",
-                       hint: "Torna alla traduzione: la Pencil cerchia di nuovo le parole", action: toggle)
+            HintButton(String(localized: "Esci dalla modalità studio"), systemImage: "highlighter",
+                       hint: String(localized: "Torna alla traduzione: la Pencil cerchia di nuovo le parole"), action: toggle)
                 .buttonStyle(.borderedProminent)
                 .tint(.orange)
         } else {
-            HintButton("Modalità studio", systemImage: "highlighter",
-                       hint: "Con la Pencil evidenzi, sottolinei e scrivi a margine invece di tradurre", action: toggle)
+            HintButton(String(localized: "Modalità studio"), systemImage: "highlighter",
+                       hint: String(localized: "Con la Pencil evidenzi, sottolinei e scrivi a margine invece di tradurre"), action: toggle)
         }
     }
 
@@ -476,9 +476,9 @@ struct ReaderView: View {
 
     @ToolbarContentBuilder private func toolbar(_ model: ReaderModel) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            HintButton("Pagina precedente", systemImage: "chevron.left", hint: "Torna alla pagina precedente") { model.previousPage() }
+            HintButton(String(localized: "Pagina precedente"), systemImage: "chevron.left", hint: String(localized: "Torna alla pagina precedente")) { model.previousPage() }
                 .disabled(model.pageIndex == 0)
-            HintButton(hint: "Tutte le pagine in miniatura, per saltare a quella che vuoi") {
+            HintButton(hint: String(localized: "Tutte le pagine in miniatura, per saltare a quella che vuoi")) {
                 showPages = true
             } label: {
                 HStack(spacing: 4) {
@@ -498,7 +498,7 @@ struct ReaderView: View {
                 }
             }
             .accessibilityLabel("Tutte le pagine")
-            HintButton("Pagina successiva", systemImage: "chevron.right", hint: "Va alla pagina successiva") { model.nextPage() }
+            HintButton(String(localized: "Pagina successiva"), systemImage: "chevron.right", hint: String(localized: "Va alla pagina successiva")) { model.nextPage() }
                 .disabled(model.pageIndex + 1 >= model.pageCount)
             if let bookmarks { bookmarkButton(bookmarks, model: model) }
         }
@@ -513,7 +513,7 @@ struct ReaderView: View {
                 model.groupHighlights(of: model.pageIndex)
                 showSummary = true
             }
-            HintButton("Cerca nel libro", systemImage: "magnifyingglass", hint: "Cerca una parola in tutto il libro") {
+            HintButton(String(localized: "Cerca nel libro"), systemImage: "magnifyingglass", hint: String(localized: "Cerca una parola in tutto il libro")) {
                 if search == nil { search = BookSearch(document: document, library: library) }
                 showSearch = true
             }

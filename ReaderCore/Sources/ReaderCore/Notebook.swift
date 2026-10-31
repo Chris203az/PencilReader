@@ -43,9 +43,9 @@ public enum PaperStyle: String, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .grid: "Quadretti"
-        case .lines: "Righe"
-        case .blank: "Bianco"
+        case .grid: String(localized: "Quadretti")
+        case .lines: String(localized: "Righe")
+        case .blank: String(localized: "Bianco")
         }
     }
 }

@@ -48,7 +48,7 @@ struct AISettingsForm: View {
                                 .navigationBarTitleDisplayMode(.inline)
                         } label: {
                             LabeledContent(provider.name,
-                                           value: APIKeyStore.shared.key(for: provider) == nil ? "Nessuna chiave" : "Chiave salvata")
+                                           value: APIKeyStore.shared.key(for: provider) == nil ? String(localized: "Nessuna chiave") : String(localized: "Chiave salvata"))
                         }
                     }
                 }
@@ -62,8 +62,8 @@ struct AISettingsForm: View {
     static var summary: String {
         let providers = Set(AIFeature.allCases.map { $0.provider() })
         guard let first = providers.first else { return "" }
-        let name = providers.count == 1 ? first.name : "\(providers.count) servizi"
-        return providers.allSatisfy { APIKeyStore.shared.key(for: $0) != nil } ? name : "\(name) · manca la chiave"
+        let name = providers.count == 1 ? first.name : String(localized: "\(providers.count) servizi")
+        return providers.allSatisfy { APIKeyStore.shared.key(for: $0) != nil } ? name : String(localized: "\(name) · manca la chiave")
     }
 
     private func providerPicker(_ feature: AIFeature, _ selection: Binding<AIProvider>) -> some View {
@@ -151,11 +151,11 @@ private struct ProviderSection: View {
 
     private var footer: String {
         let use = usedBy.isEmpty
-            ? "Non è usato da nessuna funzione."
-            : "Usato per: " + usedBy.map { "\"\($0.title)\"" }.joined(separator: " e ") + "."
+            ? String(localized: "Non è usato da nessuna funzione.")
+            : String(localized: "Usato per: \(usedBy.map { "«\($0.title)»" }.formatted(.list(type: .and))).")
         let fallback = provider.choices.count > 1
-            ? " Se il modello scelto è sovraccarico o non risponde in tempo, si passa da soli agli altri." : ""
-        return "\(use) La chiave resta solo su questo iPad, nel Portachiavi; quando la salvi viene mandato un breve messaggio di prova.\(fallback)"
+            ? " " + String(localized: "Se il modello scelto è sovraccarico o non risponde in tempo, si passa da soli agli altri.") : ""
+        return use + " " + String(localized: "La chiave resta solo su questo iPad, nel Portachiavi; quando la salvi viene mandato un breve messaggio di prova.") + fallback
     }
 
     @ViewBuilder private var checkRow: some View {
@@ -172,7 +172,7 @@ private struct ProviderSection: View {
                   systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
         case .refused(let error, let wasNew):
-            Label(wasNew ? "\(error.message) La chiave non è stata salvata." : error.message,
+            Label(wasNew ? String(localized: "\(error.message) La chiave non è stata salvata.") : error.message,
                   systemImage: "xmark.octagon.fill")
                 .foregroundStyle(.red)
         case .untested(let error):

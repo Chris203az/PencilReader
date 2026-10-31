@@ -20,9 +20,9 @@ public enum NoteLayout: String, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .none: "Nessuna"
-        case .beside: "Affiancata"
-        case .after: "Pagina dopo"
+        case .none: String(localized: "Nessuna")
+        case .beside: String(localized: "Affiancata")
+        case .after: String(localized: "Pagina dopo")
         }
     }
 }
@@ -75,6 +75,6 @@ public enum PDFExportPlan {
         let cleaned = title.components(separatedBy: CharacterSet(charactersIn: "/\\:?*\"<>|"))
             .joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return (cleaned.isEmpty ? "Libro" : cleaned) + " - annotato.pdf"
+        return String(localized: "\(cleaned.isEmpty ? String(localized: "Libro") : cleaned) - annotato.pdf")
     }
 }

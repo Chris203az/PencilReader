@@ -69,15 +69,15 @@ struct ReadingStatsView: View {
         let readDays = week.filter { $0.seconds >= 60 }.count
         return Grid(horizontalSpacing: 12, verticalSpacing: 12) {
             GridRow {
-                tile("Oggi", ReadingLog.duration(today?.seconds ?? 0))
-                tile("7 giorni", ReadingLog.duration(total))
+                tile(String(localized: "Oggi"), ReadingLog.duration(today?.seconds ?? 0))
+                tile(String(localized: "7 giorni"), ReadingLog.duration(total))
             }
             GridRow {
-                tile("Pagine viste oggi", "\(today?.pages ?? 0)")
+                tile(String(localized: "Pagine viste oggi"), "\(today?.pages ?? 0)")
                 if bookID == nil {
-                    tile("Blocchi di studio oggi", "\(today?.focusBlocks ?? 0)")
+                    tile(String(localized: "Blocchi di studio oggi"), "\(today?.focusBlocks ?? 0)")
                 } else {
-                    tile("Giorni di lettura", "\(readDays) su 7")
+                    tile(String(localized: "Giorni di lettura"), "\(readDays) su 7")
                 }
             }
         }
@@ -125,7 +125,6 @@ struct ReadingStatsView: View {
                 }
             }
         }
-        .environment(\.locale, Locale(identifier: "it_IT"))
     }
 
     private func bookRow(_ document: LibraryDocument, _ total: ReadingLog.BookTotal) -> some View {
@@ -133,7 +132,7 @@ struct ReadingStatsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(document.title)
                     .lineLimit(1)
-                Text("\(total.pages) \(total.pages == 1 ? "pagina vista" : "pagine viste") · in tutto \(ReadingLog.duration(stats.log.totalSeconds(of: document.id)))")
+                Text(total.pages == 1 ? "1 pagina vista · in tutto \(ReadingLog.duration(stats.log.totalSeconds(of: document.id)))" : "\(total.pages) pagine viste · in tutto \(ReadingLog.duration(stats.log.totalSeconds(of: document.id)))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

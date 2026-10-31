@@ -74,7 +74,7 @@ final class ReaderModel {
         }
         library.markOpened(document)
         if source == nil {
-            alertMessage = "Impossibile aprire il documento."
+            alertMessage = String(localized: "Impossibile aprire il documento.")
         } else {
             showPage(min(max(document.lastPage, 0), pageCount - 1))
         }
@@ -195,7 +195,7 @@ final class ReaderModel {
             if index + 1 < pageCount { _ = try? await recognizedText(for: index + 1) }
         } catch is CancellationError {
         } catch {
-            if pageIndex == index { alertMessage = "Riconoscimento del testo non riuscito: \(error.localizedDescription)" }
+            if pageIndex == index { alertMessage = String(localized: "Riconoscimento del testo non riuscito: \(error.localizedDescription)") }
         }
     }
 
@@ -300,7 +300,7 @@ final class ReaderModel {
                                    page: pageIndex, date: .now))
         } catch {
             guard selection?.id == current.id else { return }
-            selection?.error = "Traduzione non disponibile: \(error.localizedDescription)"
+            selection?.error = String(localized: "Traduzione non disponibile: \(error.localizedDescription)")
         }
     }
 

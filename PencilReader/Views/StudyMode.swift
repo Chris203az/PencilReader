@@ -11,17 +11,17 @@ enum StudyColor: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .key: "Concetto chiave"
-        case .formula: "Formula / dato"
-        case .review: "Da rivedere"
+        case .key: String(localized: "Concetto chiave")
+        case .formula: String(localized: "Formula / dato")
+        case .review: String(localized: "Da rivedere")
         }
     }
 
     var shortLabel: String {
         switch self {
-        case .key: "Concetto"
-        case .formula: "Formula"
-        case .review: "Rivedere"
+        case .key: String(localized: "Concetto")
+        case .formula: String(localized: "Formula")
+        case .review: String(localized: "Rivedere")
         }
     }
 
@@ -467,19 +467,19 @@ struct StudyToolbar: View {
                 }
             }
             Divider().frame(height: 28)
-            toolButton(.underline, labeled: labeled, label: "Termine", help: "Sottolinea un termine inglese") {
+            toolButton(.underline, labeled: labeled, label: String(localized: "Termine"), help: String(localized: "Sottolinea un termine inglese")) {
                 Image(systemName: "underline")
                     .foregroundStyle(Color(uiColor: StudyTool.underlineColor))
             }
-            toolButton(.pen, labeled: labeled, label: "Nota", help: "Nota a margine") {
+            toolButton(.pen, labeled: labeled, label: String(localized: "Nota"), help: String(localized: "Nota a margine")) {
                 Image(systemName: "pencil.line")
                     .foregroundStyle(Color(uiColor: StudyTool.penColor))
             }
-            toolButton(.eraser, labeled: labeled, label: "Gomma", help: "Gomma") {
+            toolButton(.eraser, labeled: labeled, label: String(localized: "Gomma"), help: String(localized: "Gomma")) {
                 Image(systemName: "eraser")
             }
             Divider().frame(height: 28)
-            Button("Annulla", systemImage: "arrow.uturn.backward") { study.undo() }
+            Button(String(localized: "action.undo", defaultValue: "Annulla"), systemImage: "arrow.uturn.backward") { study.undo() }
                 .disabled(!study.canUndo)
                 .frame(width: 40, height: 40)
             Button("Come studiare", systemImage: "questionmark.circle") { study.showsGuide = true }
@@ -521,16 +521,16 @@ struct StudyGuideView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let steps: [(String, String)] = [
-        ("Leggi prima, segna dopo",
-         "Leggi tutto il paragrafo senza la penna. Solo alla fine decidi cosa conta: così scegli, invece di colorare tutto."),
-        ("Poco e sempre con lo stesso significato",
-         "Al massimo una frase per paragrafo. Ogni colore vuol dire sempre la stessa cosa (legenda sotto)."),
-        ("Sottolinea i termini inglesi",
-         "Una riga sotto le parole tecniche da imparare. La riga si raddrizza da sola."),
-        ("Scrivi una domanda a margine",
-         "Con la penna, con parole tue: «Perché il CL crolla dopo lo stallo?». Riformulare fissa il concetto molto più del colore."),
-        ("Ripassa provando a ricordare",
-         "Nei giorni seguenti copri il testo e rispondi alle domande a margine. Comincia dalle pagine con il rosa e torna su quelle che sbagli.")
+        (String(localized: "Leggi prima, segna dopo"),
+         String(localized: "Leggi tutto il paragrafo senza la penna. Solo alla fine decidi cosa conta: così scegli, invece di colorare tutto.")),
+        (String(localized: "Poco e sempre con lo stesso significato"),
+         String(localized: "Al massimo una frase per paragrafo. Ogni colore vuol dire sempre la stessa cosa (legenda sotto).")),
+        (String(localized: "Sottolinea i termini inglesi"),
+         String(localized: "Una riga sotto le parole tecniche da imparare. La riga si raddrizza da sola.")),
+        (String(localized: "Scrivi una domanda a margine"),
+         String(localized: "Con la penna, con parole tue: «Perché il CL crolla dopo lo stallo?». Riformulare fissa il concetto molto più del colore.")),
+        (String(localized: "Ripassa provando a ricordare"),
+         String(localized: "Nei giorni seguenti copri il testo e rispondi alle domande a margine. Comincia dalle pagine con il rosa e torna su quelle che sbagli."))
     ]
 
     var body: some View {
@@ -560,10 +560,10 @@ struct StudyGuideView: View {
                     ForEach(StudyColor.allCases, id: \.self) { color in
                         legendRow(color.color, opacity: StudyTool.highlightAlpha, title: color.label, detail: detail(of: color))
                     }
-                    legendRow(Color(uiColor: StudyTool.underlineColor), opacity: 1, title: "Sottolineato",
-                              detail: "Termine inglese da imparare", thin: true)
-                    legendRow(Color(uiColor: StudyTool.penColor), opacity: 1, title: "Penna",
-                              detail: "Domande e note a margine", thin: true)
+                    legendRow(Color(uiColor: StudyTool.underlineColor), opacity: 1, title: String(localized: "Sottolineato"),
+                              detail: String(localized: "Termine inglese da imparare"), thin: true)
+                    legendRow(Color(uiColor: StudyTool.penColor), opacity: 1, title: String(localized: "Penna"),
+                              detail: String(localized: "Domande e note a margine"), thin: true)
                 }
                 Section("Come si usa") {
                     Label("La Pencil segna; il cerchio per tradurre è spento finché la modalità è attiva.", systemImage: "applepencil")
@@ -584,9 +584,9 @@ struct StudyGuideView: View {
 
     private func detail(of color: StudyColor) -> String {
         switch color {
-        case .key: "Definizioni e idee principali"
-        case .formula: "Equazioni, valori, ipotesi e unità"
-        case .review: "Non chiaro: da rivedere o chiedere"
+        case .key: String(localized: "Definizioni e idee principali")
+        case .formula: String(localized: "Equazioni, valori, ipotesi e unità")
+        case .review: String(localized: "Non chiaro: da rivedere o chiedere")
         }
     }
 

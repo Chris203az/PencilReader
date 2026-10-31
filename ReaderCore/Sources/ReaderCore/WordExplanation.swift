@@ -29,17 +29,17 @@ public enum ExplanationError: Error, Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .missingKey: "Serve una chiave API per il servizio IA scelto: aggiungila nelle impostazioni IA."
-        case .invalidKey: "La chiave API non è valida. Controllala nelle impostazioni."
-        case .quotaExceeded: "Limite di richieste raggiunto. Riprova tra un po'."
-        case .noCredit: "Credito esaurito sull'account del servizio IA. Ricaricalo o scegli un altro servizio nelle impostazioni."
-        case .offline: "Sei offline. Collegati a internet e riprova."
-        case .timedOut: "Il servizio non ha risposto in tempo. Riprova."
-        case .unavailable: "Il servizio è sovraccarico in questo momento. Riprova tra poco."
-        case .modelNotFound: "Il modello IA non è disponibile per questa chiave."
-        case .blocked: "Il servizio non ha voluto rispondere su questo testo."
-        case .badResponse: "Risposta non comprensibile. Riprova."
-        case .http(let code): "Errore del servizio (codice \(code)). Riprova."
+        case .missingKey: String(localized: "Serve una chiave API per il servizio IA scelto: aggiungila nelle impostazioni IA.")
+        case .invalidKey: String(localized: "La chiave API non è valida. Controllala nelle impostazioni.")
+        case .quotaExceeded: String(localized: "Limite di richieste raggiunto. Riprova tra un po'.")
+        case .noCredit: String(localized: "Credito esaurito sull'account del servizio IA. Ricaricalo o scegli un altro servizio nelle impostazioni.")
+        case .offline: String(localized: "Sei offline. Collegati a internet e riprova.")
+        case .timedOut: String(localized: "Il servizio non ha risposto in tempo. Riprova.")
+        case .unavailable: String(localized: "Il servizio è sovraccarico in questo momento. Riprova tra poco.")
+        case .modelNotFound: String(localized: "Il modello IA non è disponibile per questa chiave.")
+        case .blocked: String(localized: "Il servizio non ha voluto rispondere su questo testo.")
+        case .badResponse: String(localized: "Risposta non comprensibile. Riprova.")
+        case .http(let code): String(localized: "Errore del servizio (codice \(code)). Riprova.")
         }
     }
 }

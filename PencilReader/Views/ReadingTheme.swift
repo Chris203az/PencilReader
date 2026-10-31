@@ -13,10 +13,10 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .normal: "Normale"
-        case .sepia: "Seppia"
-        case .night: "Notte"
-        case .system: "Segui il sistema"
+        case .normal: String(localized: "Normale")
+        case .sepia: String(localized: "Seppia")
+        case .night: String(localized: "Notte")
+        case .system: String(localized: "Segui il sistema")
         }
     }
 
