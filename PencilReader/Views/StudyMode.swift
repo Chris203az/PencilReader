@@ -467,7 +467,7 @@ struct StudyToolbar: View {
                 }
             }
             Divider().frame(height: 28)
-            toolButton(.underline, labeled: labeled, label: String(localized: "Termine"), help: String(localized: "Sottolinea un termine inglese")) {
+            toolButton(.underline, labeled: labeled, label: String(localized: "Termine"), help: String(localized: "Sottolinea un termine da imparare")) {
                 Image(systemName: "underline")
                     .foregroundStyle(Color(uiColor: StudyTool.underlineColor))
             }
@@ -525,7 +525,7 @@ struct StudyGuideView: View {
          String(localized: "Leggi tutto il paragrafo senza la penna. Solo alla fine decidi cosa conta: così scegli, invece di colorare tutto.")),
         (String(localized: "Poco e sempre con lo stesso significato"),
          String(localized: "Al massimo una frase per paragrafo. Ogni colore vuol dire sempre la stessa cosa (legenda sotto).")),
-        (String(localized: "Sottolinea i termini inglesi"),
+        (String(localized: "Sottolinea i termini da imparare"),
          String(localized: "Una riga sotto le parole tecniche da imparare. La riga si raddrizza da sola.")),
         (String(localized: "Scrivi una domanda a margine"),
          String(localized: "Con la penna, con parole tue: «Perché il CL crolla dopo lo stallo?». Riformulare fissa il concetto molto più del colore.")),
@@ -561,7 +561,7 @@ struct StudyGuideView: View {
                         legendRow(color.color, opacity: StudyTool.highlightAlpha, title: color.label, detail: detail(of: color))
                     }
                     legendRow(Color(uiColor: StudyTool.underlineColor), opacity: 1, title: String(localized: "Sottolineato"),
-                              detail: String(localized: "Termine inglese da imparare"), thin: true)
+                              detail: String(localized: "Termine da imparare"), thin: true)
                     legendRow(Color(uiColor: StudyTool.penColor), opacity: 1, title: String(localized: "Penna"),
                               detail: String(localized: "Domande e note a margine"), thin: true)
                 }

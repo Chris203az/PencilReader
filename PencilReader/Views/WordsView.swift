@@ -157,7 +157,8 @@ struct WordsExport: Transferable {
     let words: [SavedWord]
 
     var markdown: String {
-        WordExport.markdown(words, exportedOn: Date.now.formatted(.dateTime.day().month(.wide).year()))
+        WordExport.markdown(words, exportedOn: Date.now.formatted(.dateTime.day().month(.wide).year()),
+                            languages: TranslationLanguages.current)
     }
 
     static var transferRepresentation: some TransferRepresentation {

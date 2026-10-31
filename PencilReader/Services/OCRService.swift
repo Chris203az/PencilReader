@@ -18,7 +18,11 @@ struct OCRService: Sendable {
     func recognize(_ image: CGImage) async throws -> PageText {
         var request = RecognizeTextRequest()
         request.recognitionLevel = .accurate
-        request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
+        // The books' language when Vision reads it, English otherwise; English also covers formulas and units.
+        let source = Locale.Language(identifier: TranslationLanguages.current.source)
+        let readable = request.supportedRecognitionLanguages.contains { $0.languageCode == source.languageCode }
+        request.recognitionLanguages = readable && source.languageCode != "en"
+            ? [source, Locale.Language(identifier: "en-US")] : [Locale.Language(identifier: "en-US")]
         request.usesLanguageCorrection = true
         request.customWords = Self.technicalWords
 

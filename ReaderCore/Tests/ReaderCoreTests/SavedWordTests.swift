@@ -44,5 +44,9 @@ struct SavedWordTests {
         #expect(text.range(of: "**thrust**")!.lowerBound < text.range(of: "**stall**")!.lowerBound)
         #expect(text.contains("- **thrust** → spinta · p. 5 · cercata 3 volte\n  - EN: The thrust here.\n  - IT: Il spinta qui.\n"))
         #expect(text.contains("- **stall** → stallo · p. 21\n"))
+
+        let german = WordExport.markdown([thrust], exportedOn: "25 ottobre 2026",
+                                         languages: LanguagePair(source: "de-DE", target: "es"))
+        #expect(german.contains("  - DE: The thrust here.\n  - ES: Il spinta qui.\n"))
     }
 }

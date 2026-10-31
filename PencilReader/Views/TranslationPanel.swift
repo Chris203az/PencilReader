@@ -39,7 +39,7 @@ struct TranslationPanel: View {
             if selection.translation != nil {
                 HStack {
                     Button("Ascolta", systemImage: "speaker.wave.2") { Pronouncer.speak(selection.text) }
-                        .accessibilityLabel("Ascolta la pronuncia inglese")
+                        .accessibilityLabel("Ascolta la pronuncia")
                     if UIReferenceLibraryViewController.dictionaryHasDefinition(forTerm: selection.text) {
                         Button("Dizionario", systemImage: "character.book.closed") { showDictionary = true }
                     }

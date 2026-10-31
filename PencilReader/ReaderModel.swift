@@ -250,11 +250,13 @@ final class ReaderModel {
                               anchor: CGRect(boundingPoints: stroke).normalized(in: imageFrame),
                               text: text,
                               context: pageText.contextSentences(for: ids))
-        if translationConfig == nil {
-            translationConfig = .init(source: Locale.Language(identifier: "en"),
-                                      target: Locale.Language(identifier: "it"))
-        } else {
+        let languages = TranslationLanguages.current
+        let source = Locale.Language(identifier: languages.source)
+        let target = Locale.Language(identifier: languages.target)
+        if translationConfig?.source == source && translationConfig?.target == target {
             translationConfig?.invalidate()
+        } else {
+            translationConfig = .init(source: source, target: target)
         }
     }
 

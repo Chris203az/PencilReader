@@ -585,12 +585,12 @@
         }
       }
     },
-    "Ascolta la pronuncia inglese": {
+    "Ascolta la pronuncia": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Listen to the English pronunciation"
+            "value": "Listen to the pronunciation"
           }
         }
       }
@@ -2345,6 +2345,16 @@
         }
       }
     },
+    "Inverti le lingue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swap languages"
+          }
+        }
+      }
+    },
     "L'IA non ha risposto: potrai riprovare dopo.": {
       "localizations": {
         "en": {
@@ -2741,6 +2751,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Language changed"
+          }
+        }
+      }
+    },
+    "Lingua dei libri": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books language"
           }
         }
       }
@@ -4455,22 +4475,22 @@
         }
       }
     },
-    "Sottolinea i termini inglesi": {
+    "Sottolinea i termini da imparare": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Underline the English terms"
+            "value": "Underline the terms to learn"
           }
         }
       }
     },
-    "Sottolinea un termine inglese": {
+    "Sottolinea un termine da imparare": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Underline an English term"
+            "value": "Underline a term to learn"
           }
         }
       }
@@ -4695,22 +4715,22 @@
         }
       }
     },
-    "Termine inglese da imparare": {
+    "Termine da imparare": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "English term to learn"
+            "value": "Term to learn"
           }
         }
       }
     },
-    "Termini inglesi": {
+    "Termini da imparare": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "English terms"
+            "value": "Terms to learn"
           }
         }
       }
@@ -4841,6 +4861,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Back to translation: the Pencil circles words again"
+          }
+        }
+      }
+    },
+    "Traduce sull'iPad con i modelli di Apple: la prima volta che usi una lingua nuova, l'iPad chiede di scaricarla. Seguono queste lingue anche «Ascolta», le risposte dell'IA e la lettura del testo delle pagine non ancora riconosciute.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translates on the iPad with Apple's models: the first time you use a new language, the iPad asks to download it. “Listen”, the AI answers and the text recognition of pages not yet recognized follow these languages too."
+          }
+        }
+      }
+    },
+    "Traduci in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate into"
+          }
+        }
+      }
+    },
+    "Traduzione": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
           }
         }
       }

@@ -17,7 +17,7 @@ enum SummaryKind: String, CaseIterable, Identifiable {
         case .key: StudyColor.key.label
         case .formula: StudyColor.formula.label
         case .review: StudyColor.review.label
-        case .term: String(localized: "Termini inglesi")
+        case .term: String(localized: "Termini da imparare")
         case .note: String(localized: "Note a margine")
         }
     }

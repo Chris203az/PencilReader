@@ -133,7 +133,7 @@ final class RecapStore {
         }
         guard hasKey else { return .failure(ExplanationError.missingKey.message) }
         do {
-            return .success(try await RecapWriter.recap(fromModelText: AIClient.ask(RecapWriter.prompt(pages: pages),
+            return .success(try await RecapWriter.recap(fromModelText: AIClient.ask(RecapWriter.prompt(pages: pages, languages: TranslationLanguages.current),
                                                                                     for: .study)))
         } catch {
             return .failure(error.message)

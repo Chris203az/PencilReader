@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// Reads a circled English word or phrase aloud, with an English voice.
+/// Reads a circled word or phrase aloud, with a voice of the books' language.
 @MainActor
 enum Pronouncer {
     private static let synthesizer = AVSpeechSynthesizer()
@@ -11,7 +11,7 @@ enum Pronouncer {
         try? AVAudioSession.sharedInstance().setActive(true)
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.voice = AVSpeechSynthesisVoice(language: TranslationLanguages.current.source)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
         synthesizer.speak(utterance)
     }

@@ -164,7 +164,8 @@ extension AIClient {
 
     static func compact(_ fragments: [HighlightGrouping.Fragment],
                         pageTexts: [Int: String]) async throws(ExplanationError) -> [HighlightGrouping.Concept] {
-        let prompt = HighlightGrouping.prompt(fragments: fragments, kindNames: kindNames, pageTexts: pageTexts)
+        let prompt = HighlightGrouping.prompt(fragments: fragments, kindNames: kindNames, pageTexts: pageTexts,
+                                              languages: TranslationLanguages.current)
         return try HighlightGrouping.concepts(fromModelText: await ask(prompt, for: .study), fragments: fragments)
     }
 }

@@ -21,13 +21,13 @@ One iPad app that does all of it on device, for free, with no account.
 
 Reading an engineering handbook in a second language means stopping every few lines: open a translator, copy the sentence, lose the thread. PencilReader removes those steps. **Circle the word with the Pencil and the translation appears right there, inside its sentence.** Around it sit the tools for real studying: highlighters with a fixed meaning, a notebook beside the page, spaced-repetition review and a study timer.
 
-> The interface is in Italian or English (Settings › Language, or the iPad language): it translates English texts into Italian.
+> The interface is in Italian or English (Settings › Language, or the iPad language). Books are translated from English into Italian by default; both languages can be changed in Settings › Translation.
 
 ## ✨ At a glance
 
 | | |
 |---|---|
-| 🔍 **Circle and translate** | English → Italian translation of the whole sentence, with the circled words highlighted. English pronunciation with one tap. |
+| 🔍 **Circle and translate** | Translation of the whole sentence (English → Italian by default), with the circled words highlighted. Pronunciation with one tap. |
 | 🖍️ **Study mode** | Concept, formula, to review, term, margin note. A summary gathers every mark in the book. |
 | 📓 **Notebook beside the page** | One note per page, shapes that straighten themselves, lasso, ruler. |
 | 🧠 **Review** | Flashcards of the words you looked up, with spaced repetition; recaps of the pages you read. |
@@ -51,7 +51,7 @@ Reading an engineering handbook in a second language means stopping every few li
 ## 🔍 Reading and translation
 
 - Each page's text is recognized on device (Vision), also for the whole book in the background.
-- **Circle a word with the Pencil**: Italian translation of the whole sentence (Apple's Translation framework), system dictionary, copy.
+- **Circle a word with the Pencil**: translation of the whole sentence into the chosen language (Apple's Translation framework), system dictionary, copy.
 - **Listen**: the English pronunciation of the circled word.
 - **Ask the AI** (optional): a short explanation of the term and of its meaning in that sentence, with Gemini or DeepSeek and your own key.
 - **PDF outline** in a column on the left, opened and closed by a tab on the edge; it follows the chapter you are reading.
@@ -93,6 +93,7 @@ Reading an engineering handbook in a second language means stopping every few li
 - **One screen** for everything: AI, library, reading, notebook, timer, study, export, backup and data, with switches for every on/off option.
 - **App appearance**: System, Light or Dark.
 - **Language** of the interface: System, Italiano or English. The change applies when the app is reopened.
+- **Translation**: the language of the books and the one to translate into, among those of Apple's on-device translation. Pronunciation, text recognition and the AI answers follow them too.
 - **Keep the screen on** while reading, hints, theme for new books, circling with a finger.
 - **Backup** to a folder of your choice, iCloud Drive included: automatic once a day, on demand, or restore. It copies books, words, statistics, notebook notes, study marks, bookmarks, AI concepts and settings; the last 5 are kept.
 - **Export to PDF** the annotated book, with study marks and notebook notes side by side or on pages of their own.

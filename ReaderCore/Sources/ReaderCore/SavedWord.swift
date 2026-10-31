@@ -52,7 +52,8 @@ public struct SavedWord: Codable, Sendable, Hashable, Identifiable {
 public enum WordExport {
     /// Plain Markdown, readable as is and easy to paste into an AI chat:
     /// one section per book, most recently read first.
-    public static func markdown(_ words: [SavedWord], exportedOn date: String) -> String {
+    public static func markdown(_ words: [SavedWord], exportedOn date: String, languages: LanguagePair = .default) -> String {
+        let from = label(languages.source), to = label(languages.target)
         var out = String(localized: "# Parole cercate in PencilReader\n\n")
         out += String(localized: "Esportate il \(date) · \(count(words.count))\n")
         let books = Dictionary(grouping: words, by: \.documentID)
@@ -65,11 +66,16 @@ public enum WordExport {
                 out += "- **\(word.term)** → \(word.translation) · p. \(word.page + 1)"
                 if word.lookups > 1 { out += " · " + String(localized: "cercata \(word.lookups) volte") }
                 out += "\n"
-                if let sentence = word.sentence { out += "  - EN: \(sentence)\n" }
-                if let translated = word.sentenceTranslation { out += "  - IT: \(translated)\n" }
+                if let sentence = word.sentence { out += "  - \(from): \(sentence)\n" }
+                if let translated = word.sentenceTranslation { out += "  - \(to): \(translated)\n" }
             }
         }
         return out
+    }
+
+    /// "EN", "IT": the language part of a code such as "en-GB".
+    private static func label(_ code: String) -> String {
+        String(code.prefix { $0 != "-" && $0 != "_" }).uppercased()
     }
 
     private static func count(_ n: Int) -> String { n == 1 ? String(localized: "1 parola") : String(localized: "\(n) parole") }

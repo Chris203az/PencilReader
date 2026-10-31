@@ -99,6 +99,9 @@ struct SettingsView: View {
     @State private var showsGuide = false
     @State private var language = AppLanguage.chosen
     @State private var languageChanged = false
+    @AppStorage(TranslationLanguages.sourceKey) private var sourceLanguage = LanguagePair.default.source
+    @AppStorage(TranslationLanguages.targetKey) private var targetLanguage = LanguagePair.default.target
+    @State private var translationLanguages: [String] = []
     @State private var confirmsDeleteWords = false
     @State private var backup = BackupService.shared
     /// What the folder being picked is for; kept after the picker closes, since its answer comes after.
@@ -144,6 +147,30 @@ struct SettingsView: View {
                 } footer: {
                     Text("«Sistema» segue la lingua dell'iPad. La nuova lingua si vede alla prossima apertura dell'app.")
                 }
+
+                Section {
+                    Picker(selection: $sourceLanguage) {
+                        languageOptions(including: sourceLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Lingua dei libri"), systemImage: "book.closed", color: .teal)
+                    }
+                    Picker(selection: $targetLanguage) {
+                        languageOptions(including: targetLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Traduci in"), systemImage: "character.bubble", color: .teal)
+                    }
+                    Button {
+                        (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage)
+                    } label: {
+                        SettingsRow(String(localized: "Inverti le lingue"), systemImage: "arrow.left.arrow.right", color: .gray)
+                    }
+                    .foregroundStyle(.primary)
+                } header: {
+                    Text("Traduzione")
+                } footer: {
+                    Text("Traduce sull'iPad con i modelli di Apple: la prima volta che usi una lingua nuova, l'iPad chiede di scaricarla. Seguono queste lingue anche «Ascolta», le risposte dell'IA e la lettura del testo delle pagine non ancora riconosciute.")
+                }
+                .task { translationLanguages = await TranslationLanguages.supported() }
 
                 Section {
                     NavigationLink {
@@ -405,6 +432,15 @@ struct SettingsView: View {
             .sheet(isPresented: $showsGuide) {
                 StudyGuideView().presentationSizing(.form)
             }
+        }
+    }
+
+    /// The languages of the on-device translation, plus the chosen one while they load.
+    @ViewBuilder
+    private func languageOptions(including chosen: String) -> some View {
+        let codes = translationLanguages.contains(chosen) ? translationLanguages : [chosen] + translationLanguages
+        ForEach(codes, id: \.self) { code in
+            Text(TranslationLanguages.name(of: code)).tag(code)
         }
     }
 
