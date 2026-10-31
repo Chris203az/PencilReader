@@ -37,8 +37,8 @@ final class ReaderModel {
     private(set) var pageImage: UIImage?
     private(set) var pageText: PageText?
     private(set) var selection: Selection?
-    var showWordBoxes = false
-    var allowsFingerDrawing = false
+    var showWordBoxes = AppSettings.bool(AppSettings.wordBoxesKey, default: false)
+    var allowsFingerDrawing = AppSettings.bool(AppSettings.fingerDrawingKey, default: false)
     var translationConfig: TranslationSession.Configuration?
     var alertMessage: String?
     /// Words found by the book search, highlighted on their page.
@@ -51,6 +51,12 @@ final class ReaderModel {
     private var textCache: [Int: PageText] = [:]
     private var ocrTasks: [Int: Task<PageText, Error>] = [:]
     private let ocr = OCRService()
+
+    /// Picks up what was changed in Impostazioni while the book was open.
+    func reloadSettings() {
+        showWordBoxes = AppSettings.bool(AppSettings.wordBoxesKey, default: false)
+        allowsFingerDrawing = AppSettings.bool(AppSettings.fingerDrawingKey, default: false)
+    }
 
     var title: String { library.document(withID: document.id)?.title ?? document.title }
     var isRecognizing: Bool { pageImage != nil && pageText == nil }

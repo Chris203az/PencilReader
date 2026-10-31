@@ -42,7 +42,8 @@ struct LibraryView: View {
     @State private var showReview = false
     @State private var showStats = false
     @State private var showRecaps = false
-    @State private var showAISettings = false
+    @State private var showSettings = false
+    @AppStorage(AppSettings.continueReadingKey) private var showsContinueReading = true
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 24)]
 
@@ -58,8 +59,20 @@ struct LibraryView: View {
                 }
             } else {
                 ScrollView {
+                    if let current = continueReading {
+                        ContinueReadingCard(document: current, thumbnail: library.thumbnailURL(of: current),
+                                            readingTime: stats.log.totalSeconds(of: current.id)) { open(current) }
+                            .padding([.horizontal, .top], 24)
+                        if !gridDocuments.isEmpty {
+                            Text("Altri libri")
+                                .font(.title3.weight(.semibold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 24)
+                                .padding(.top, 28)
+                        }
+                    }
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 28) {
-                        ForEach(library.visibleDocuments) { document in
+                        ForEach(gridDocuments) { document in
                             Button { open(document) } label: {
                                 DocumentCard(document: document, thumbnail: library.thumbnailURL(of: document),
                                              recognition: recognitionStatus(of: document),
@@ -95,19 +108,24 @@ struct LibraryView: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { library.reload() } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Impostazioni IA", systemImage: "sparkles") { showAISettings = true }
+                ReviewButton(count: reviews.dueCount(in: wordList.words), showsTitle: true) { showReview = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
+                Menu {
+                    Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
+                    Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
+                    Button("Statistiche di lettura", systemImage: "chart.bar.xaxis") { showStats = true }
+                } label: {
+                    // Written out: a bare symbol would not say what is inside.
+                    HStack(spacing: 6) {
+                        Image(systemName: "graduationcap")
+                        Text("Studio")
+                    }
+                }
             }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Rielaborazioni", systemImage: "brain.head.profile") { showRecaps = true }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                ReviewButton(count: reviews.dueCount(in: wordList.words)) { showReview = true }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Parole cercate", systemImage: "character.book.closed") { showWords = true }
+                Button("Impostazioni", systemImage: "gearshape") { showSettings = true }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Aggiungi", systemImage: "plus") { openButtons }
@@ -120,8 +138,8 @@ struct LibraryView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
             }
         }
-        .sheet(isPresented: $showAISettings) {
-            AISettingsView().presentationSizing(.form)
+        .sheet(isPresented: $showSettings) {
+            SettingsView().presentationSizing(.page)
         }
         .sheet(isPresented: $showWords) {
             WordsView(currentDocument: nil) { word in
@@ -204,6 +222,15 @@ struct LibraryView: View {
         } message: {
             Text(alertMessage ?? "")
         }
+    }
+
+    /// The book opened last, shown large at the top.
+    private var continueReading: LibraryDocument? {
+        showsContinueReading ? library.visibleDocuments.first : nil
+    }
+
+    private var gridDocuments: [LibraryDocument] {
+        continueReading == nil ? library.visibleDocuments : Array(library.visibleDocuments.dropFirst())
     }
 
     @ViewBuilder private var collectionMenu: some View {
@@ -331,18 +358,11 @@ private struct DocumentCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AsyncImage(url: thumbnail) { image in
-                image.resizable().scaledToFit()
-            } placeholder: {
-                Rectangle().fill(.quaternary)
-            }
-            .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 220)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+            BookCover(thumbnail: thumbnail)
 
-            Text(document.title)
+            Text(document.displayTitle)
                 .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
+                .lineLimit(2, reservesSpace: true)
             Text("Pagina \(document.lastPage + 1) di \(document.pageCount)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -361,5 +381,85 @@ private struct DocumentCard: View {
             }
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// A page thumbnail as a book cover: always 3:4, so the shelf lines up whatever the page shape.
+private struct BookCover: View {
+    let thumbnail: URL
+
+    var body: some View {
+        Color(.secondarySystemBackground)
+            .aspectRatio(3 / 4, contentMode: .fit)
+            .overlay {
+                AsyncImage(url: thumbnail) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Image(systemName: "book.closed")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.black.opacity(0.08)))
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+    }
+}
+
+/// The book opened last: cover, title, where it was left and a button to go on.
+private struct ContinueReadingCard: View {
+    let document: LibraryDocument
+    let thumbnail: URL
+    let readingTime: TimeInterval
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .center, spacing: 24) {
+                BookCover(thumbnail: thumbnail)
+                    .frame(width: 120)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Continua a leggere")
+                        .font(.footnote.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.accentColor)
+                    Text(document.displayTitle)
+                        .font(.title2.weight(.bold))
+                        .lineLimit(2)
+                    Text("Pagina \(document.lastPage + 1) di \(document.pageCount)"
+                         + (readingTime >= 60 ? " · \(ReadingLog.duration(readingTime)) di lettura" : ""))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    ProgressView(value: Double(document.lastPage + 1), total: Double(max(document.pageCount, 1)))
+                        .frame(maxWidth: 320)
+                    Label("Riprendi", systemImage: "book")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .foregroundStyle(.white)
+                        .background(Color.accentColor, in: Capsule())
+                        .padding(.top, 4)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension LibraryDocument {
+    /// The title as shown: a file name like "nasa_systems_engineering_handbook_0" becomes
+    /// "Nasa systems engineering handbook". The saved title does not change.
+    var displayTitle: String {
+        var words = title.replacingOccurrences(of: "_", with: " ").split(separator: " ").map(String.init)
+        // A lone trailing "0" or "1" is a copy number added to the file, not part of the title.
+        if title.contains("_"), words.count > 1, let last = words.last, last.count == 1, last.allSatisfy(\.isNumber) {
+            words.removeLast()
+        }
+        let cleaned = words.joined(separator: " ")
+        guard let first = cleaned.first, first.isLowercase else { return cleaned.isEmpty ? title : cleaned }
+        return first.uppercased() + cleaned.dropFirst()
     }
 }

@@ -80,6 +80,8 @@ struct NotebookDivider: View {
     @Binding var split: Double
     /// Width the two sides share, without the divider itself.
     let available: CGFloat
+    /// The notebook is below the page: the line lies across and moves up and down.
+    var stacked = false
     @GestureState private var dragOffset: CGFloat = 0
 
     static let width: CGFloat = 24
@@ -87,23 +89,28 @@ struct NotebookDivider: View {
     var body: some View {
         Capsule()
             .fill(dragOffset == 0 ? Color.secondary.opacity(0.5) : Color.accentColor)
-            .frame(width: dragOffset == 0 ? 4 : 6, height: dragOffset == 0 ? 44 : 120)
-            .frame(width: Self.width)
-            .frame(maxHeight: .infinity)
+            .frame(width: stacked ? handleLength : handleThickness, height: stacked ? handleThickness : handleLength)
+            .frame(width: stacked ? nil : Self.width, height: stacked ? Self.width : nil)
+            .frame(maxWidth: stacked ? .infinity : nil, maxHeight: stacked ? nil : .infinity)
             .contentShape(Rectangle())
-            .offset(x: dragOffset)
+            .offset(x: stacked ? 0 : dragOffset, y: stacked ? dragOffset : 0)
             .gesture(
                 // Measured on the screen: the handle moves while dragged, so its own coordinates
                 // would shift under the finger and make it shake.
                 DragGesture(minimumDistance: 1, coordinateSpace: .global)
-                    .updating($dragOffset) { value, state, _ in state = offset(for: value.translation.width) }
+                    .updating($dragOffset) { value, state, _ in state = offset(for: along(value.translation)) }
                     .onEnded { value in
-                        split = SplitRatio.clamped(split + Double(value.translation.width / available))
+                        split = SplitRatio.clamped(split + Double(along(value.translation) / available))
                         NotebookSettings.saveSplit(split)
                     }
             )
             .accessibilityLabel("Divisore tra pagina e quaderno")
     }
+
+    private var handleThickness: CGFloat { dragOffset == 0 ? 4 : 6 }
+    private var handleLength: CGFloat { dragOffset == 0 ? 44 : 120 }
+
+    private func along(_ translation: CGSize) -> CGFloat { stacked ? translation.height : translation.width }
 
     /// The drag, stopped where the split reaches its limits.
     private func offset(for translation: CGFloat) -> CGFloat {

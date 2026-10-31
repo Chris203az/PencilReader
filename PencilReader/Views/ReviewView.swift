@@ -192,11 +192,16 @@ private struct FlashCard: View {
 /// Opens the review, with the number of words due today on a red badge.
 struct ReviewButton: View {
     let count: Int
+    /// "Ripasso" beside the symbol, where there is room for it.
+    var showsTitle = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "rectangle.on.rectangle.angled")
+            HStack(spacing: 6) {
+                Image(systemName: "rectangle.on.rectangle.angled")
+                if showsTitle { Text("Ripasso") }
+            }
                 .overlay(alignment: .topTrailing) {
                     if count > 0 {
                         Text(count > 99 ? "99+" : "\(count)")
@@ -206,7 +211,7 @@ struct ReviewButton: View {
                             .padding(.vertical, 1)
                             .background(.red, in: Capsule())
                             .fixedSize()
-                            .offset(x: 12, y: -10)
+                            .offset(x: showsTitle ? 16 : 12, y: -10)
                     }
                 }
         }

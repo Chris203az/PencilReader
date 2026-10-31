@@ -1,36 +1,69 @@
 import ReaderCore
 import SwiftUI
 
-/// Which AI service each feature uses, and the key (and model) of each service.
+/// The AI settings on their own, from the translation panel when a key is missing.
 struct AISettingsView: View {
     @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AISettingsForm()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fine") { dismiss() }
+                    }
+                }
+        }
+    }
+}
+
+/// Which AI service each feature uses, and the key (and model) of each service.
+/// Services in use come first, open; the others wait behind a link.
+struct AISettingsForm: View {
     @AppStorage(AIFeature.ask.providerKey) private var askProvider = AIProvider.google
     @AppStorage(AIFeature.study.providerKey) private var studyProvider = AIProvider.google
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    providerPicker(AIFeature.ask, $askProvider)
-                    providerPicker(AIFeature.study, $studyProvider)
-                } header: {
-                    Text("Servizio IA")
-                } footer: {
-                    Text("\(AIFeature.ask.title): \(AIFeature.ask.detail)\n\(AIFeature.study.title): \(AIFeature.study.detail)")
-                }
-
-                ForEach(AIProvider.allCases) { provider in
-                    ProviderSection(provider: provider, usedBy: features(using: provider))
-                }
+        Form {
+            Section {
+                providerPicker(AIFeature.ask, $askProvider)
+                providerPicker(AIFeature.study, $studyProvider)
+            } header: {
+                Text("Servizio IA")
+            } footer: {
+                Text("\(AIFeature.ask.title): \(AIFeature.ask.detail)\n\(AIFeature.study.title): \(AIFeature.study.detail)")
             }
-            .navigationTitle("Impostazioni IA")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Fine") { dismiss() }
+
+            ForEach(AIProvider.allCases.filter { !features(using: $0).isEmpty }) { provider in
+                ProviderSection(provider: provider, usedBy: features(using: provider))
+            }
+
+            let unused = AIProvider.allCases.filter { features(using: $0).isEmpty }
+            if !unused.isEmpty {
+                Section("Altri servizi") {
+                    ForEach(unused) { provider in
+                        NavigationLink {
+                            Form { ProviderSection(provider: provider, usedBy: []) }
+                                .navigationTitle(provider.name)
+                                .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            LabeledContent(provider.name,
+                                           value: APIKeyStore.shared.key(for: provider) == nil ? "Nessuna chiave" : "Chiave salvata")
+                        }
+                    }
                 }
             }
         }
+        .navigationTitle("Intelligenza artificiale")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The service in use, for the row that leads here.
+    static var summary: String {
+        let providers = Set(AIFeature.allCases.map { $0.provider() })
+        guard let first = providers.first else { return "" }
+        let name = providers.count == 1 ? first.name : "\(providers.count) servizi"
+        return providers.allSatisfy { APIKeyStore.shared.key(for: $0) != nil } ? name : "\(name) · manca la chiave"
     }
 
     private func providerPicker(_ feature: AIFeature, _ selection: Binding<AIProvider>) -> some View {
@@ -102,7 +135,12 @@ private struct ProviderSection: View {
                 LabeledContent("Modello", value: provider.choices[0].name)
             }
         } header: {
-            Text("\(provider.name) · \(provider.note)")
+            HStack(spacing: 6) {
+                Text("\(provider.name) · \(provider.note)")
+                if keys.key(for: provider) != nil {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+                }
+            }
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 Text(footer)
