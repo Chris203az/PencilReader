@@ -1,13 +1,13 @@
 #!/bin/zsh
-# Compila PencilReader e lo reinstalla sull'iPad collegato (libreria e OCR restano).
-# Uso: collega l'iPad con il cavo, sbloccalo e lancia  ./installa.sh
+# Builds PencilReader and reinstalls it on the connected iPad (library and OCR are kept).
+# Usage: connect the iPad with a cable, unlock it and run  ./install.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
 BUNDLE_ID="com.christianrauso.PencilReader"
 APP="build/Build/Products/Debug-iphoneos/PencilReader.app"
 
-echo "→ Cerco l'iPad collegato…"
+echo "→ Looking for the connected iPad…"
 JSON=$(mktemp)
 xcrun devicectl list devices --json-output "$JSON" >/dev/null 2>&1
 DEVICE=$(/usr/bin/python3 -c '
@@ -21,7 +21,7 @@ for d in devices:
 ' "$JSON")
 rm -f "$JSON"
 if [[ -z "$DEVICE" ]]; then
-    echo "✗ Nessun iPad trovato: collegalo con il cavo, sbloccalo e riprova."
+    echo "✗ No iPad found: connect it with a cable, unlock it and try again."
     exit 1
 fi
 
@@ -29,23 +29,23 @@ if command -v xcodegen >/dev/null; then
     xcodegen generate --quiet
 fi
 
-echo "→ Compilo (il primo build può richiedere qualche minuto)…"
+echo "→ Building (the first build can take a few minutes)…"
 xcodebuild -project PencilReader.xcodeproj -scheme PencilReader \
     -destination "id=$DEVICE" -derivedDataPath build \
     -allowProvisioningUpdates -quiet build
 
-echo "→ Installo sull'iPad…"
+echo "→ Installing on the iPad…"
 xcrun devicectl device install app --device "$DEVICE" "$APP" >/dev/null
 
-echo "→ Avvio l'app…"
+echo "→ Launching the app…"
 if ! xcrun devicectl device process launch --terminate-existing --device "$DEVICE" "$BUNDLE_ID" >/dev/null 2>&1; then
-    echo "  (L'iPad era bloccato: aprila tu dalla schermata Home.)"
+    echo "  (The iPad was locked: open the app from the Home Screen.)"
 fi
 
-# La scadenza è quella del profilo di firma, che Xcode rinnova solo quando sta per scadere.
+# The expiry is the signing profile's, which Xcode renews only when it is about to expire.
 EXPIRY=$(security cms -D -i "$APP/embedded.mobileprovision" 2>/dev/null | plutil -extract ExpirationDate raw - 2>/dev/null || true)
 if [[ -n "$EXPIRY" ]]; then
-    echo "✓ Fatto. Valida fino a $(LC_TIME=it_IT.UTF-8 date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$EXPIRY" +%s | xargs -I{} env LC_TIME=it_IT.UTF-8 date -r {} '+%A %d %B, %H:%M')."
+    echo "✓ Done. Valid until $(LC_TIME=en_US.UTF-8 date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$EXPIRY" +%s | xargs -I{} env LC_TIME=en_US.UTF-8 date -r {} '+%A %d %B, %H:%M')."
 else
-    echo "✓ Fatto."
+    echo "✓ Done."
 fi
