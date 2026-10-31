@@ -127,3 +127,7 @@ mkdir -p Payload && cp -R build/Release-iphoneos/PencilReader.app Payload/ && zi
 ## 🚧 Roadmap
 
 - **Tidying handwriting in the notebook**: straightens handwritten lines and fits them into the grid. Removed from the app until it works well; the code (HandwritingTidier, NotebookTidying) lives in the local branch `riordino-da-sviluppare`, not published.
+
+## License
+
+Copyright © 2026 Christian Rauso. All rights reserved: see [LICENSE](LICENSE). No use, copy or distribution without written permission.
