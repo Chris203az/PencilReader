@@ -20,6 +20,8 @@ struct ReaderView: View {
     @State private var search: BookSearch?
     @State private var showWords = false
     @State private var showSettings = false
+    @State private var renaming = false
+    @State private var newTitle = ""
     @AppStorage(AppSettings.progressBarKey) private var showsProgressBar = true
     @AppStorage(AppSettings.keepsScreenOnKey) private var keepsScreenOn = false
     /// Created with the model, so the notes of every page are known before the notebook opens.
@@ -189,7 +191,7 @@ struct ReaderView: View {
                 ProgressView()
             }
         }
-        .navigationTitle(library.document(withID: document.id)?.displayTitle ?? document.displayTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         // Own back button: the system one comes with the swipe-back gesture.
         .navigationBarBackButtonHidden(true)
@@ -201,6 +203,27 @@ struct ReaderView: View {
                 StudyTimerButton(bookID: document.id, onFix: fixReading) { recap in
                     recapSheet = .open(recap)
                 }
+            }
+            // On the left, away from the notebook divider; tapped, it renames the book.
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    newTitle = displayTitle
+                    renaming = true
+                } label: {
+                    Text(displayTitle)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .frame(maxWidth: 320, alignment: .leading)
+                }
+                .accessibilityHint("Rinomina il libro")
+            }
+            .sharedBackgroundVisibility(.hidden)
+        }
+        .alert("Rinomina", isPresented: $renaming) {
+            TextField("Titolo", text: $newTitle)
+            Button("Annulla", role: .cancel) {}
+            Button("Salva") {
+                if let current = library.document(withID: document.id) { library.rename(current, to: newTitle) }
             }
         }
         // Reading time counts only while the book is open and the app is in front.
@@ -235,6 +258,10 @@ struct ReaderView: View {
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
             await thumbnails?.prefetch(from: model?.pageIndex ?? document.lastPage)
         }
+    }
+
+    private var displayTitle: String {
+        library.document(withID: document.id)?.displayTitle ?? document.displayTitle
     }
 
     /// The reader has finished reading: the pages seen today up to this one, after the last recap.

@@ -40,6 +40,15 @@ struct SettingsView: View {
 
     @State private var showsGuide = false
     @State private var confirmsDeleteWords = false
+    @State private var backup = BackupService.shared
+    /// What the folder being picked is for; kept after the picker closes, since its answer comes after.
+    @State private var pickMode = FolderPick.destination
+    @State private var picksFolder = false
+    @State private var restoring: URL?
+    @State private var restored = false
+    @State private var backupError: String?
+
+    private enum FolderPick { case destination, restore }
     @Environment(WordList.self) private var wordList
 
     var body: some View {
@@ -179,6 +188,52 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button {
+                        pickMode = .destination
+                        picksFolder = true
+                    } label: {
+                        SettingsRow("Cartella dei backup", systemImage: "folder", color: .blue,
+                                    detail: backup.folderName ?? "Scegli…")
+                    }
+                    .foregroundStyle(.primary)
+                    Toggle(isOn: $backup.isAutomatic) {
+                        SettingsRow("Backup automatico ogni giorno", systemImage: "clock.arrow.circlepath", color: .blue)
+                    }
+                    .disabled(!backup.hasFolder)
+                    Button {
+                        Task { await backup.backUp() }
+                    } label: {
+                        HStack {
+                            SettingsRow("Fai un backup adesso", systemImage: "externaldrive.badge.icloud", color: .blue)
+                            if backup.state == .running {
+                                Spacer()
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                    .disabled(!backup.hasFolder || backup.state == .running)
+                    Button {
+                        pickMode = .restore
+                        picksFolder = true
+                    } label: {
+                        SettingsRow("Ripristina da un backup…", systemImage: "arrow.counterclockwise", color: .gray)
+                    }
+                    .foregroundStyle(.primary)
+                    .disabled(backup.state == .running)
+                } header: {
+                    Text("Backup")
+                } footer: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if case .failed(let message) = backup.state {
+                            Label("Ultimo backup non riuscito: \(message)", systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                        }
+                        Text(backupFooter)
+                    }
+                }
+
+                Section {
                     Button(role: .destructive) {
                         confirmsDeleteWords = true
                     } label: {
@@ -211,10 +266,56 @@ struct SettingsView: View {
             } message: {
                 Text("Non si può annullare.")
             }
+            .fileImporter(isPresented: $picksFolder, allowedContentTypes: [.folder]) { result in
+                guard case .success(let url) = result else { return }
+                switch pickMode {
+                case .destination:
+                    do { try backup.choose(url) } catch { backupError = error.localizedDescription }
+                case .restore:
+                    if BackupService.isBackup(url) {
+                        restoring = url
+                    } else {
+                        backupError = "Questa cartella non è un backup di PencilReader: scegli una cartella «PencilReader …»."
+                    }
+                }
+            }
+            .confirmationDialog("Ripristinare questo backup?",
+                                isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } }),
+                                titleVisibility: .visible) {
+                Button("Sostituisci tutto con il backup", role: .destructive) {
+                    guard let url = restoring else { return }
+                    Task {
+                        do {
+                            try await backup.restore(from: url)
+                            restored = true
+                        } catch {
+                            backupError = error.localizedDescription
+                        }
+                    }
+                }
+            } message: {
+                Text("Libri, note, segni, parole e impostazioni di adesso vengono sostituiti da quelli di «\(restoring?.lastPathComponent ?? "")».")
+            }
+            .alert("Ripristino completato", isPresented: $restored) {
+                Button("Chiudi l'app") { exit(0) }
+            } message: {
+                Text("Chiudi e riapri l'app per vedere i dati del backup.")
+            }
+            .alert("Backup", isPresented: Binding(get: { backupError != nil }, set: { if !$0 { backupError = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(backupError ?? "")
+            }
             .sheet(isPresented: $showsGuide) {
                 StudyGuideView().presentationSizing(.form)
             }
         }
+    }
+
+    private var backupFooter: String {
+        let last = backup.lastBackup.map { "Ultimo backup: \($0.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "it_IT"))))." }
+            ?? "Nessun backup ancora."
+        return "\(last) Copia libri, note, segni, parole, statistiche e impostazioni (non le chiavi IA) in una cartella di File: scegline una in iCloud Drive per averla anche fuori dall'iPad. Restano gli ultimi \(BackupService.kept) backup."
     }
 
     private static var version: String {

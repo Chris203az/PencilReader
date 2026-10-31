@@ -62,6 +62,8 @@ struct LibraryView: View {
                     if let current = continueReading {
                         ContinueReadingCard(document: current, thumbnail: library.thumbnailURL(of: current),
                                             readingTime: stats.log.totalSeconds(of: current.id)) { open(current) }
+                            .overlay(alignment: .topTrailing) { menuButton(for: current).padding(12) }
+                            .contextMenu { documentMenu(for: current) }
                             .padding([.horizontal, .top], 24)
                         if !gridDocuments.isEmpty {
                             Text("Altri libri")
@@ -79,21 +81,8 @@ struct LibraryView: View {
                                              readingTime: stats.log.totalSeconds(of: document.id))
                             }
                             .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Rinomina", systemImage: "pencil") {
-                                    newTitle = document.title
-                                    renaming = document
-                                }
-                                recognitionButton(for: document)
-                                if library.collections.count > 1 {
-                                    Menu("Sposta in", systemImage: "folder") {
-                                        ForEach(library.collections.filter { $0.id != library.collectionID(of: document) }) { c in
-                                            Button(c.name) { library.move(document, to: c) }
-                                        }
-                                    }
-                                }
-                                Button("Elimina", systemImage: "trash", role: .destructive) { deleting = document }
-                            }
+                            .overlay(alignment: .topTrailing) { menuButton(for: document).padding(6) }
+                            .contextMenu { documentMenu(for: document) }
                         }
                     }
                     .padding(24)
@@ -269,6 +258,35 @@ struct LibraryView: View {
                 deletingCollection = library.currentCollection
             }
         }
+    }
+
+    /// Rename, recognize, move, delete: from the button on the cover or by holding the book.
+    @ViewBuilder private func documentMenu(for document: LibraryDocument) -> some View {
+        Button("Rinomina", systemImage: "pencil") {
+            newTitle = document.displayTitle
+            renaming = document
+        }
+        recognitionButton(for: document)
+        if library.collections.count > 1 {
+            Menu("Sposta in", systemImage: "folder") {
+                ForEach(library.collections.filter { $0.id != library.collectionID(of: document) }) { c in
+                    Button(c.name) { library.move(document, to: c) }
+                }
+            }
+        }
+        Button("Elimina", systemImage: "trash", role: .destructive) { deleting = document }
+    }
+
+    private func menuButton(for document: LibraryDocument) -> some View {
+        Menu {
+            documentMenu(for: document)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.body.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(.regularMaterial, in: Circle())
+        }
+        .accessibilityLabel("Opzioni del libro")
     }
 
     @ViewBuilder private func recognitionButton(for document: LibraryDocument) -> some View {
