@@ -355,12 +355,32 @@
         }
       }
     },
+    "Accenderla": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turning it on"
+          }
+        }
+      }
+    },
     "Affiancata": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Side by side"
+          }
+        }
+      }
+    },
+    "Aggiungere un libro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adding a book"
           }
         }
       }
@@ -401,6 +421,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "At most one sentence per paragraph. Each color always means the same thing (legend below)."
+          }
+        }
+      }
+    },
+    "Alla fine riscrivi a mano, senza guardare, le pagine lette; intanto l'IA prepara la sua versione da confrontare. Le rielaborazioni sono nel menu ··· del libro e nel menu Studio della libreria.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the end you rewrite the pages you read by hand, without looking; meanwhile the AI prepares its version to compare. Recaps are in the book's ··· menu and in the library's Study menu."
           }
         }
       }
@@ -575,6 +605,16 @@
         }
       }
     },
+    "Aprirlo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening it"
+          }
+        }
+      }
+    },
     "Ascolta": {
       "localizations": {
         "en": {
@@ -591,6 +631,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Listen to the pronunciation"
+          }
+        }
+      }
+    },
+    "Ascolta legge la parola con la pronuncia della lingua del libro; Dizionario apre quello di sistema; Copia la mette negli appunti; Chiedi all'IA spiega il termine nel contesto.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen reads the word with the pronunciation of the book's language; Dictionary opens the system one; Copy puts it on the clipboard; Ask AI explains the term in context."
           }
         }
       }
@@ -815,6 +865,16 @@
         }
       }
     },
+    "Cerca": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
     "Cerca in “%@”": {
       "localizations": {
         "en": {
@@ -845,12 +905,42 @@
         }
       }
     },
+    "Cerchia con la Pencil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circle with the Pencil"
+          }
+        }
+      }
+    },
     "Cerchia le parole col dito": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Circle words with your finger"
+          }
+        }
+      }
+    },
+    "Cerchiare": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circling"
+          }
+        }
+      }
+    },
+    "Cerchiare col dito": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Circling with your finger"
           }
         }
       }
@@ -911,6 +1001,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ask AI"
+          }
+        }
+      }
+    },
+    "Chiude il riquadro della traduzione.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closes the translation box."
           }
         }
       }
@@ -995,6 +1095,16 @@
         }
       }
     },
+    "Col dito": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With your finger"
+          }
+        }
+      }
+    },
     "Colore %lld": {
       "localizations": {
         "en": {
@@ -1021,6 +1131,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Colors"
+          }
+        }
+      }
+    },
+    "Come funziona ogni parte dell'app, con tutti i gesti delle dita e della Pencil.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How every part of the app works, with all the finger and Pencil gestures."
           }
         }
       }
@@ -1105,12 +1225,32 @@
         }
       }
     },
+    "Con + in alto: scansiona pagine con la fotocamera, scegli foto o importa un PDF.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With + at the top: scan pages with the camera, choose photos or import a PDF."
+          }
+        }
+      }
+    },
     "Con il dito sfogli, zoomi e giri pagina come sempre.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "With your finger you scroll, zoom and turn pages as usual."
+          }
+        }
+      }
+    },
+    "Con l'opzione attiva un dito cerchia le parole e due dita spostano la pagina ingrandita; lo scorrimento per girare pagina è spento.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With the option on, one finger circles words and two fingers move the zoomed page; swiping to turn pages is off."
           }
         }
       }
@@ -1125,12 +1265,42 @@
         }
       }
     },
+    "Con la modalità studio accesa la Pencil evidenzia, sottolinea o scrive a margine; le dita continuano a girare e ingrandire la pagina.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With study mode on the Pencil highlights, underlines or writes in the margin; fingers still turn and zoom the page."
+          }
+        }
+      }
+    },
     "Con la penna, con parole tue: «Perché il CL crolla dopo lo stallo?». Riformulare fissa il concetto molto più del colore.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "With the pen, in your own words: “Why does CL drop after the stall?”. Rephrasing fixes the concept far better than color."
+          }
+        }
+      }
+    },
+    "Con le forme automatiche attive, disegna una linea, un cerchio o un rettangolo e tieni ferma la punta: diventa una forma pulita. Toccando la sua linea col dito la puoi modificare.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With automatic shapes on, draw a line, a circle or a rectangle and hold the tip still: it becomes a clean shape. Tapping its line with your finger lets you edit it."
+          }
+        }
+      }
+    },
+    "Con «Cerchia le parole col dito» nelle Impostazioni si cerchia anche col dito. Le pagine allora si girano con le frecce in alto.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With “Circle words with your finger” in Settings you can circle with your finger too. Pages are then turned with the arrows at the top."
           }
         }
       }
@@ -1325,6 +1495,46 @@
         }
       }
     },
+    "Dal menu ··· del libro: tutto il libro, un intervallo o solo le pagine annotate, con i segni di studio e le note del quaderno accanto o dopo ogni pagina.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the book's ··· menu: the whole book, a range or only the annotated pages, with the study marks and the notebook notes beside or after each page."
+          }
+        }
+      }
+    },
+    "Dal menu ··· scegli Normale, Seppia, Notte o Segui il sistema per il libro aperto.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the ··· menu choose Normal, Sepia, Night or Follow the system for the open book."
+          }
+        }
+      }
+    },
+    "Dal riquadro della traduzione: cosa vuol dire il termine e cosa intende l'autore in quella frase.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the translation box: what the term means and what the author means in that sentence."
+          }
+        }
+      }
+    },
+    "Dal titolo in alto crei, rinomini ed elimini librerie, e scegli quale vedere. Un libro si sposta in un'altra libreria dal suo menu.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the title at the top you create, rename and delete libraries, and choose which one to see. A book moves to another library from its menu."
+          }
+        }
+      }
+    },
     "Dalla pagina %lld": {
       "localizations": {
         "en": {
@@ -1341,6 +1551,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "From page %lld to %lld."
+          }
+        }
+      }
+    },
+    "Dalle parole cercate (menu Studio della libreria) puoi condividere l'elenco come file di testo, comodo anche da dare a un'IA.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the looked-up words (the library's Study menu) you can share the list as a text file, handy to give to an AI too."
           }
         }
       }
@@ -1385,12 +1605,42 @@
         }
       }
     },
+    "Disegna un anello intorno ai tratti per selezionarli. Nel riquadro: trascina dentro per spostarli, un angolo per ridimensionarli, un lato per allungarli, la maniglia sopra per ruotarli. Funziona anche col dito.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draw a loop around strokes to select them. In the box: drag inside to move them, a corner to resize them, a side to stretch them, the grip above to rotate them. It works with your finger too."
+          }
+        }
+      }
+    },
+    "Disegna un cerchio intorno a una o più parole: compare la traduzione della frase intera, con le parole cerchiate evidenziate.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Draw a circle around one or more words: the translation of the whole sentence appears, with the circled words highlighted."
+          }
+        }
+      }
+    },
     "Disegna un contorno più grande, oppure Annulla": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Draw a bigger outline, or Cancel"
+          }
+        }
+      }
+    },
+    "Divisore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divider"
           }
         }
       }
@@ -1431,6 +1681,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Questions and notes written with the pen"
+          }
+        }
+      }
+    },
+    "Dopo aver toccato la linea di una forma col dito, la Pencil trascina i suoi punti: estremi, angoli, lati o assi. Trascinare la linea la sposta.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After tapping a shape's line with your finger, the Pencil drags its points: ends, corners, sides or axes. Dragging the line moves it."
+          }
+        }
+      }
+    },
+    "Dopo le forbici, disegna intorno alla parte da copiare.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After the scissors, draw around the part to copy."
+          }
+        }
+      }
+    },
+    "Doppio tocco": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap"
+          }
+        }
+      }
+    },
+    "Doppio tocco sulla Pencil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double tap on the Pencil"
           }
         }
       }
@@ -1655,6 +1945,26 @@
         }
       }
     },
+    "Esportare": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporting"
+          }
+        }
+      }
+    },
+    "Esportare e backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export and backup"
+          }
+        }
+      }
+    },
     "Esportate il %@ · %@\n": {
       "localizations": {
         "en": {
@@ -1815,6 +2125,46 @@
         }
       }
     },
+    "Funzioni": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Features"
+          }
+        }
+      }
+    },
+    "Gesti": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestures"
+          }
+        }
+      }
+    },
+    "Gesti con la Pencil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pencil gestures"
+          }
+        }
+      }
+    },
+    "Gesti con le dita": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finger gestures"
+          }
+        }
+      }
+    },
     "Giorni di lettura": {
       "localizations": {
         "en": {
@@ -1831,6 +2181,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Day"
+          }
+        }
+      }
+    },
+    "Gli strumenti": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The tools"
           }
         }
       }
@@ -1911,6 +2271,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Free with Google AI Studio"
+          }
+        }
+      }
+    },
+    "Guida": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide"
+          }
+        }
+      }
+    },
+    "Guida all'uso": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "User guide"
           }
         }
       }
@@ -2005,6 +2385,16 @@
         }
       }
     },
+    "Il cronometro accanto al titolo del libro alterna blocchi di studio e pause; le durate si cambiano nelle Impostazioni.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The stopwatch next to the book's title alternates study blocks and breaks; the durations are changed in Settings."
+          }
+        }
+      }
+    },
     "Il documento e il testo riconosciuto verranno rimossi dall'app.": {
       "localizations": {
         "en": {
@@ -2041,6 +2431,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "The AI model is not available for this key."
+          }
+        }
+      }
+    },
+    "Il pulsante Riepilogo nella barra del libro raccoglie i segni di studio e le note del quaderno, divisi per colore e per pagina; un tocco porta alla pagina.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Summary button in the book's bar gathers the study marks and the notebook notes, grouped by color and by page; a tap takes you to the page."
+          }
+        }
+      }
+    },
+    "Il pulsante con l'evidenziatore in alto: la Pencil segna invece di tradurre, finché non la spegni.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The highlighter button at the top: the Pencil marks instead of translating, until you turn it off."
+          }
+        }
+      }
+    },
+    "Il pulsante in basso a destra apre il quaderno accanto alla pagina. Ogni pagina del libro ha la sua nota.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The button at the bottom right opens the notebook next to the page. Each page of the book has its own note."
+          }
+        }
+      }
+    },
+    "Il pulsante ··· su un libro, o tenerlo premuto, apre Rinomina, Sposta in, riconoscimento del testo ed Elimina.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The ··· button on a book, or pressing and holding it, opens Rename, Move to, text recognition and Delete."
           }
         }
       }
@@ -2175,6 +2605,46 @@
         }
       }
     },
+    "Impostazioni utili": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Useful settings"
+          }
+        }
+      }
+    },
+    "In Impostazioni › Backup scegli una cartella, anche in iCloud Drive: libri, note, segni, parole, statistiche e impostazioni vengono copiati ogni giorno o quando vuoi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Settings › Backup you choose a folder, iCloud Drive included: books, notes, marks, words, statistics and settings are copied every day or whenever you want."
+          }
+        }
+      }
+    },
+    "In Impostazioni › Intelligenza artificiale scegli il servizio per ogni funzione e incolli la sua chiave API, che resta solo sull'iPad.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Settings › Artificial intelligence you choose the service for each feature and paste its API key, which stays only on the iPad."
+          }
+        }
+      }
+    },
+    "In Impostazioni › Traduzione scegli la lingua dei libri e quella in cui tradurre. La prima volta che usi una lingua, l'iPad chiede di scaricarla.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Settings › Translation you choose the books' language and the one to translate into. The first time you use a language, the iPad asks to download it."
+          }
+        }
+      }
+    },
     "In alto": {
       "localizations": {
         "en": {
@@ -2201,6 +2671,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bottom"
+          }
+        }
+      }
+    },
+    "In cima c'è l'ultimo libro aperto, con la pagina e il tempo di lettura. Si nasconde dalle Impostazioni.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At the top is the last book you opened, with its page and reading time. It can be hidden in Settings."
           }
         }
       }
@@ -2281,6 +2761,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "About"
+          }
+        }
+      }
+    },
+    "Ingrandisce o rimpicciolisce la pagina; sotto la grandezza normale torna da sola.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zooms the page in or out; below normal size it springs back."
           }
         }
       }
@@ -2385,6 +2875,16 @@
         }
       }
     },
+    "L'IA unisce le evidenziazioni dello stesso concetto, anche su pagine vicine, e ne scrive una sintesi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The AI merges the highlights of the same concept, even on nearby pages, and writes a summary of them."
+          }
+        }
+      }
+    },
     "L'IA unisce le evidenziazioni dello stesso concetto, anche tra pagine vicine, e ne scrive una sintesi breve.": {
       "localizations": {
         "en": {
@@ -2401,6 +2901,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The highlighter snaps to one line at a time; going over it with the same color doesn't darken it."
+          }
+        }
+      }
+    },
+    "L'evidenziatore si aggancia alla riga di testo e il sottolineato si raddrizza quando stacchi la Pencil.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The highlighter snaps to the line of text and the underline straightens when you lift the Pencil."
+          }
+        }
+      }
+    },
+    "L'iPad non si spegne mentre un libro è aperto.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The iPad doesn't turn its screen off while a book is open."
           }
         }
       }
@@ -2461,6 +2981,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The key stays only on this iPad, in the Keychain; when you save it a short test message is sent."
+          }
+        }
+      }
+    },
+    "La lente cerca una parola in tutto il libro, nel testo riconosciuto delle pagine: «Riconosci tutto il libro» lo prepara in sottofondo.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The magnifying glass searches for a word in the whole book, in the pages' recognized text: “Recognize the whole book” prepares it in the background."
+          }
+        }
+      }
+    },
+    "La linguetta a sinistra apre l'indice dei capitoli del PDF. Dopo un salto, «Torna a pag.» riporta dove eri.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The tab on the left opens the PDF's table of contents. After a jump, “Back to p.” takes you back where you were."
           }
         }
       }
@@ -2531,6 +3071,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "The %lld pages with study mode marks or a note."
+          }
+        }
+      }
+    },
+    "Le carte": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cards"
+          }
+        }
+      }
+    },
+    "Le chiavi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The keys"
+          }
+        }
+      }
+    },
+    "Le forbici in basso: disegna con la Pencil intorno a una parte dello schermo, pagina e quaderno insieme, e viene copiata negli appunti.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The scissors at the bottom: draw with the Pencil around part of the screen, page and notebook together, and it is copied to the clipboard."
+          }
+        }
+      }
+    },
+    "Le frecce in alto girano pagina; toccare il numero mostra tutte le pagine in miniatura, con i filtri Solo segnalibri e Solo annotate.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The arrows at the top turn the page; tapping the number shows all pages as thumbnails, with the Bookmarks only and Annotated only filters."
+          }
+        }
+      }
+    },
+    "Le lingue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Languages"
           }
         }
       }
@@ -2625,6 +3215,16 @@
         }
       }
     },
+    "Leggere un libro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading a book"
+          }
+        }
+      }
+    },
     "Leggi per un tempo preciso": {
       "localizations": {
         "en": {
@@ -2705,6 +3305,16 @@
         }
       }
     },
+    "Librerie": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Libraries"
+          }
+        }
+      }
+    },
     "Libri, note, segni, parole e impostazioni di adesso vengono sostituiti da quelli di «%@».": {
       "localizations": {
         "en": {
@@ -2765,6 +3375,16 @@
         }
       }
     },
+    "Lingua dell'app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App language"
+          }
+        }
+      }
+    },
     "Mancano %@, timer fermo": {
       "localizations": {
         "en": {
@@ -2795,6 +3415,26 @@
         }
       }
     },
+    "Menu del lasso": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lasso menu"
+          }
+        }
+      }
+    },
+    "Menu del libro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book menu"
+          }
+        }
+      }
+    },
     "Minuti": {
       "localizations": {
         "en": {
@@ -2821,6 +3461,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Model"
+          }
+        }
+      }
+    },
+    "Modificare una forma": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editing a shape"
           }
         }
       }
@@ -2865,12 +3515,72 @@
         }
       }
     },
+    "Nel quaderno": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the notebook"
+          }
+        }
+      }
+    },
+    "Nel quaderno scrive solo la Pencil: le dita scorrono e ingrandiscono, senza lasciare segni.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the notebook only the Pencil writes: fingers scroll and zoom, without leaving marks."
+          }
+        }
+      }
+    },
+    "Nel quaderno segue la scelta di Impostazioni › Apple Pencil: passa alla gomma e ritorno, o allo strumento usato prima.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the notebook it follows the choice in Settings › Apple Pencil: switches to the eraser and back, or to the previous tool."
+          }
+        }
+      }
+    },
+    "Nel quaderno, con le forme automatiche attive: alla fine di un tratto, mezzo secondo fermi e il tratto diventa una forma pulita. Senza staccare, muovi la punta per regolarla.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the notebook, with automatic shapes on: at the end of a stroke, hold still for half a second and the stroke becomes a clean shape. Without lifting, move the tip to adjust it."
+          }
+        }
+      }
+    },
     "Nel riepilogo, l'IA raccoglie le evidenziazioni simili sotto un unico concetto.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "In the summary, the AI gathers similar highlights under a single concept."
+          }
+        }
+      }
+    },
+    "Nel ripasso": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In review"
+          }
+        }
+      }
+    },
+    "Nel riquadro": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In the box"
           }
         }
       }
@@ -3305,6 +4015,16 @@
         }
       }
     },
+    "Ogni parola tradotta finisce tra le parole cercate, con la sua frase: le ritrovi nel menu ··· del libro, nel menu Studio della libreria e nel Ripasso.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every translated word goes into the looked-up words, with its sentence: you find them in the book's ··· menu, in the library's Study menu and in Review."
+          }
+        }
+      }
+    },
     "Opzioni": {
       "localizations": {
         "en": {
@@ -3371,6 +4091,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Next page"
+          }
+        }
+      }
+    },
+    "Pagina ingrandita": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoomed page"
           }
         }
       }
@@ -3575,6 +4305,16 @@
         }
       }
     },
+    "Penna, matita, evidenziatore, gomma, lasso e righello, con colori e spessori. «Barra strumenti…» sceglie quali pulsanti mostrare e in che ordine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pen, pencil, highlighter, eraser, lasso and ruler, with colors and widths. “Toolbar…” chooses which buttons to show and in what order."
+          }
+        }
+      }
+    },
     "Piccola": {
       "localizations": {
         "en": {
@@ -3591,6 +4331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pixel"
+          }
+        }
+      }
+    },
+    "Pizzica": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinch"
           }
         }
       }
@@ -3691,6 +4441,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Grid"
+          }
+        }
+      }
+    },
+    "Quadretti, righe o bianco, dalle Impostazioni o dalla barra del quaderno.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grid, lines or blank, from Settings or from the notebook bar."
           }
         }
       }
@@ -3875,6 +4635,16 @@
         }
       }
     },
+    "Riepilogo e IA": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Summary and AI"
+          }
+        }
+      }
+    },
     "Righe": {
       "localizations": {
         "en": {
@@ -4015,12 +4785,32 @@
         }
       }
     },
+    "Ripasso delle parole": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Word review"
+          }
+        }
+      }
+    },
     "Ripasso finito": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Review done"
+          }
+        }
+      }
+    },
+    "Ripasso, in libreria, mostra le parole cercate da ripassare oggi. Il numero rosso dice quante sono.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review, in the library, shows the looked-up words to review today. The red number says how many there are."
           }
         }
       }
@@ -4085,6 +4875,16 @@
         }
       }
     },
+    "Ripristino": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
     "Ripristino completato": {
       "localizations": {
         "en": {
@@ -4115,6 +4915,16 @@
         }
       }
     },
+    "Rispondere": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Answering"
+          }
+        }
+      }
+    },
     "Risposta non comprensibile. Riprova.": {
       "localizations": {
         "en": {
@@ -4141,6 +4951,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clips part of the screen with the Pencil and copies it, page and notebook together"
+          }
+        }
+      }
+    },
+    "Ritagliare lo schermo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clipping the screen"
           }
         }
       }
@@ -4255,6 +5075,16 @@
         }
       }
     },
+    "Scegli quanto vuoi leggere: l'app divide il tempo in blocchi e pause e ti avvisa alla fine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose how long you want to read: the app splits the time into blocks and breaks and tells you when it ends."
+          }
+        }
+      }
+    },
     "Scegli…": {
       "localizations": {
         "en": {
@@ -4271,6 +5101,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep screen on"
+          }
+        }
+      }
+    },
+    "Scorrere in un elenco": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swiping in a list"
+          }
+        }
+      }
+    },
+    "Scorri a destra con un dito per annullare e a sinistra per ripristinare; su e giù scorre la nota, il pizzico la ingrandisce fino a 4x. Ingrandita, il dito la sposta invece di annullare.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe right with one finger to undo and left to redo; up and down scrolls the note, pinching zooms it up to 4x. When zoomed, the finger moves it instead of undoing."
+          }
+        }
+      }
+    },
+    "Scorri a sinistra o a destra": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe left or right"
+          }
+        }
+      }
+    },
+    "Scorri verso il basso": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe down"
+          }
+        }
+      }
+    },
+    "Scrivere nel quaderno": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Writing in the notebook"
           }
         }
       }
@@ -4325,12 +5205,32 @@
         }
       }
     },
+    "Segnare in modalità studio": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Marking in study mode"
+          }
+        }
+      }
+    },
     "Segni della modalità studio": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Study mode marks"
+          }
+        }
+      }
+    },
+    "Segni puliti": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clean marks"
           }
         }
       }
@@ -4431,6 +5331,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "System"
+          }
+        }
+      }
+    },
+    "Sistema, Italiano o English: la nuova lingua si vede alla riapertura dell'app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System, Italiano or English: the new language shows when the app is reopened."
           }
         }
       }
@@ -4595,6 +5505,16 @@
         }
       }
     },
+    "Strumenti": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tools"
+          }
+        }
+      }
+    },
     "Studio": {
       "localizations": {
         "en": {
@@ -4625,6 +5545,16 @@
         }
       }
     },
+    "Su un pulsante della barra del libro: spiega cosa fa. Sul segnalibro in alto: nome e altri segnalibri. Su un libro in libreria: apre il suo menu. Su un colore del quaderno: lo cambia. Su un segnalibro dell'elenco: Rinomina e Rimuovi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On a button in the book's bar: explains what it does. On the bookmark at the top: name and other bookmarks. On a book in the library: opens its menu. On a notebook color: changes it. On a bookmark in the list: Rename and Remove."
+          }
+        }
+      }
+    },
     "Successivo: %@": {
       "localizations": {
         "en": {
@@ -4641,6 +5571,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tips on long press"
+          }
+        }
+      }
+    },
+    "Sulla pagina del libro, un cerchio intorno a una o più parole le traduce.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the book page, a circle around one or more words translates them."
+          }
+        }
+      }
+    },
+    "Sulla pagina del libro: chiude il libro e torna alla libreria.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the book page: closes the book and goes back to the library."
+          }
+        }
+      }
+    },
+    "Sulla pagina del libro: pagina successiva o precedente.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the book page: next or previous page."
+          }
+        }
+      }
+    },
+    "Sulla pagina ingrandisce dove tocchi; se è già ingrandita torna normale. Nel quaderno riporta lo zoom a 1x.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the page it zooms in where you tap; if already zoomed it goes back to normal. In the notebook it resets the zoom to 1x."
           }
         }
       }
@@ -4691,6 +5661,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reading time over"
+          }
+        }
+      }
+    },
+    "Tenendo premuto un pulsante della barra del libro, compare cosa fa invece di eseguirlo.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pressing and holding a button in the book's bar shows what it does instead of doing it."
+          }
+        }
+      }
+    },
+    "Tenere ferma la punta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Holding the tip still"
+          }
+        }
+      }
+    },
+    "Tenere premuto": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press and hold"
           }
         }
       }
@@ -4765,6 +5765,16 @@
         }
       }
     },
+    "Timer e rielaborazione": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer and recap"
+          }
+        }
+      }
+    },
     "Tipo di gomma": {
       "localizations": {
         "en": {
@@ -4795,6 +5805,16 @@
         }
       }
     },
+    "Tocca la carta per girarla.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the card to flip it."
+          }
+        }
+      }
+    },
     "Tocca la carta per vedere la traduzione": {
       "localizations": {
         "en": {
@@ -4805,12 +5825,32 @@
         }
       }
     },
+    "Tocca la carta per vedere la traduzione, poi scegli Non la sapevo, Difficile o La sapevo: la parola torna più o meno presto.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the card to see the translation, then choose I didn't know it, Hard or I knew it: the word comes back sooner or later."
+          }
+        }
+      }
+    },
     "Tocca per scegliere tipo e grandezza": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Tap to choose type and size"
+          }
+        }
+      }
+    },
+    "Tocco sulla pagina": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap on the page"
           }
         }
       }
@@ -4885,6 +5925,16 @@
         }
       }
     },
+    "Tradurre una parola": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translating a word"
+          }
+        }
+      }
+    },
     "Traduzione": {
       "localizations": {
         "en": {
@@ -4915,6 +5965,16 @@
         }
       }
     },
+    "Trascina la barretta tra pagina e quaderno per dare più spazio all'uno o all'altro.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag the bar between page and notebook to give more room to one or the other."
+          }
+        }
+      }
+    },
     "Trascina per cambiare l'ordine.": {
       "localizations": {
         "en": {
@@ -4931,6 +5991,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Whole stroke"
+          }
+        }
+      }
+    },
+    "Tre evidenziatori con un significato fisso (concetto chiave, formula o dato, da rivedere), il sottolineato per i termini da imparare, la penna per le note a margine e la gomma.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Three highlighters with a fixed meaning (key concept, formula or data, to review), the underline for terms to learn, the pen for margin notes and the eraser."
           }
         }
       }
@@ -5045,12 +6115,42 @@
         }
       }
     },
+    "Un dito la sposta; per girare pagina scorri velocemente con due dita.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One finger moves it; to turn the page swipe quickly with two fingers."
+          }
+        }
+      }
+    },
     "Un esempio, una formula o un'applicazione": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "An example, a formula or an application"
+          }
+        }
+      }
+    },
+    "Un tocco nel riquadro apre Copia, Taglia, Duplica, Elimina e Cambia colore; un tocco fuori lascia la selezione; tenendo premuto sulla carta vuota compare Incolla.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tap in the box opens Copy, Cut, Duplicate, Delete and Change color; a tap outside lets the selection go; pressing and holding on empty paper shows Paste."
+          }
+        }
+      }
+    },
+    "Un tocco sul segnalibro in alto segna o toglie la pagina aperta. Tenendolo premuto puoi darle un nome, andare al segnalibro prima o dopo e vedere l'elenco.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A tap on the bookmark at the top marks or unmarks the open page. Pressing and holding it lets you name it, go to the previous or next bookmark and see the list."
           }
         }
       }
@@ -5155,6 +6255,16 @@
         }
       }
     },
+    "Verso sinistra su un segnalibro mostra Rinomina e Rimuovi; su una rielaborazione, Elimina.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left on a bookmark shows Rename and Remove; on a recap, Delete."
+          }
+        }
+      }
+    },
     "action.undo": {
       "localizations": {
         "en": {
@@ -5241,12 +6351,32 @@
         }
       }
     },
+    "«Come studiare» nella barra spiega come usare i segni per ricordare davvero, non solo per colorare.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“How to study” in the bar explains how to use the marks to really remember, not just to color."
+          }
+        }
+      }
+    },
     "«Continua a leggere» in alto": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "“Continue reading” at the top"
+          }
+        }
+      }
+    },
+    "«Ripristina da un backup…» sostituisce tutti i dati con quelli della cartella scelta; poi l'app va riaperta.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Restore from a backup…” replaces all data with that of the chosen folder; then the app has to be reopened."
           }
         }
       }

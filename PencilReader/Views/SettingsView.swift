@@ -365,9 +365,16 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        GuideView()
+                    } label: {
+                        SettingsRow(String(localized: "Guida all'uso"), systemImage: "book.pages", color: .accentColor)
+                    }
                     LabeledContent("Versione", value: Self.version)
                 } header: {
                     Text("Informazioni")
+                } footer: {
+                    Text("Come funziona ogni parte dell'app, con tutti i gesti delle dita e della Pencil.")
                 }
             }
             .navigationTitle("Impostazioni")

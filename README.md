@@ -93,6 +93,7 @@ Reading an engineering handbook in a second language means stopping every few li
 - **One screen** for everything: AI, library, reading, notebook, timer, study, export, backup and data, with switches for every on/off option.
 - **App appearance**: System, Light or Dark.
 - **Language** of the interface: System, Italiano or English. The change applies when the app is reopened.
+- **About › User guide**: one page per feature, plus every finger and Pencil gesture, in the app's language.
 - **Translation**: the language of the books and the one to translate into, among those of Apple's on-device translation. Pronunciation, text recognition and the AI answers follow them too.
 - **Keep the screen on** while reading, hints, theme for new books, circling with a finger.
 - **Backup** to a folder of your choice, iCloud Drive included: automatic once a day, on demand, or restore. It copies books, words, statistics, notebook notes, study marks, bookmarks, AI concepts and settings; the last 5 are kept.
